@@ -176,10 +176,62 @@ def U_group(
     return eigvecs[:, idx[:rfk[group_id]]]
 
 
+def U_ind(
+    Ak: NDArray[np.float64],
+    U: NDArray[np.float64],
+    Ufk: NDArray[np.float64],
+    rk: int,
+) -> NDArray[np.float64]:
+    """
+    Estimate the individual subspace U_k for one matrix in the GJIVE model.
 
-def U_ind():
+    Removes the estimated joint and group contributions:
 
-    return None
+        R_k = I - U V_k^T - U_f W_k^T
+
+    and extracts the top rk left singular vectors of the residual.
+
+    Parameters
+    ----------
+    Ak : np.ndarray, shape (n,n)
+        Data matrix.
+    U : np.ndarray
+        Estimated joint basis.
+    Ufk : np.ndarray
+        Estimated group basis.
+    rk : int
+        Individual rank.
+
+    Returns
+    -------
+    np.ndarray
+        Estimated individual basis U_k.
+    """
+
+    Ak = np.asarray(Ak, dtype=float)
+
+    n = Ak.shape[0]
+
+    if Ak.shape[0] != Ak.shape[1]:
+        raise ValueError("Ak must be square.")
+
+    if rk < 0 or rk > n:
+        raise ValueError(
+            f"Invalid individual rank {rk} for dimension {n}."
+        )
+
+    residual = (np.eye(n) - U @ U.T - Ufk @ Ufk.T) @ Ak
+
+    Uk, _, _ = np.linalg.svd(residual, full_matrices=False)
+
+    return Uk[:, :rk]
+
+def estimate_loading(A: NDArray[np.float64], 
+                     subspace_estimate: NDArray[np.float64]) -> NDArray[np.float64]:
+    
+    return A.T @ subspace_estimate
+
+    
 
 
 def gjive(A, r, r_k, r_fk, r_ind, seed=None):
