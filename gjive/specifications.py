@@ -43,6 +43,13 @@ class SimulationSpec:
                 "p must be strictly between 0 and 1."
             )
         
+        rank_sum = self.r + sum(self.rfk) + max(self.rk)
+        if rank_sum >= self.n:
+            raise ValueError(
+                f"Rank Sum: {rank_sum} exceeds Column Total: {self.n}"
+            )
+
+        
         rng = np.random.default_rng(self.seed)
 
         self.group_assignment = rng.binomial(
