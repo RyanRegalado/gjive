@@ -42,7 +42,7 @@ def main() -> None:
     K=6,
     r=3,
     rfk=[3,3],
-    rk=[3,3,2,2,2,3],
+    rk=[3,2,3,3,3,2],
     p=0.5,
     seed=42,
     )
@@ -62,8 +62,8 @@ def main() -> None:
     print("------")
     print("A :", data.A.shape)
     print("U :", data.U.shape)
-    print("Uf:", data.Uf.shape)
-    print("Uk:", data.Uk.shape)
+    print("Number of Uf ranks given", data.Uf.shape)
+    print("Number of Uk ranks given", data.Uk.shape)
 
     print("\nMetadata")
     print("--------")
@@ -81,12 +81,18 @@ def main() -> None:
     # Simple sanity checks
     # -----------------------------
     assert data.A.shape == (specs.K, specs.n, specs.n)
+    print("PASSED: A has the correct shape")
     assert data.U.shape == (specs.n, specs.r)
-    print(data.Uk.shape)
-    assert data.Uk.shape == (specs.K, specs.n, specs.rk[0])
+    print("PASSED: U has the correct shape")
 
-    num_groups = len(np.unique(specs.group_assignment))
-    assert data.Uf.shape == (num_groups, specs.n, specs.rfk[0])
+    for m, uf in enumerate(data.Uf):
+        assert(uf.shape == (specs.n, specs.rfk[m]))
+        print(f'PASSED: Uf[{m}] has the correct shape')
+
+
+    for k, uk in enumerate(data.Uk):
+        assert(uk.shape == (specs.n, specs.rk[k]))
+        print(f'PASSED: Uk[{k}] has the correct shape')
 
     print("\nAll sanity checks passed.")
 

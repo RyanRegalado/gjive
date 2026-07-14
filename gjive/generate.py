@@ -336,9 +336,12 @@ def generate_simulation_data(
     for i, g in enumerate(sorted(Ufk)):
         Uf_array[i] = Ufk[g]
 
-# Uk is already ordered by matrix index k, so only convert to an object array
-# for storage.
-    Uk_array = np.array(Uk, dtype=object)
+# Same fix for Uk
+
+    Uk_array = np.empty(len(Uk), dtype=object)
+
+    for i, uk in enumerate(Uk):
+        Uk_array[i] = uk
 
     np.savez(
         simulation_dir / "simulation.npz",
