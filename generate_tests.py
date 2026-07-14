@@ -8,7 +8,7 @@ from gjive.utils import check_orthogonal, check_orthonormal
 
 
 def main() -> None:
-    # make_repros(1,3)
+    make_repros(1,3)
     
     print(f"\n\nSeed Uniqueness Test:")
     # Tests Reproducibility via seed

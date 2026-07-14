@@ -42,6 +42,9 @@ class GjiveData:
     U: np.ndarray = field(init=False)
     Uf: dict = field(init=False)
     Uk: list = field(init=False)
+    V: np.ndarray = field(init = False)
+    W: np.ndarray = field(init = False)
+    X: np.ndarray = field(init = False)
     metadata: dict[str, Any] = field(init=False)
     group_assignment: np.ndarray = field(init=False)
 
@@ -63,6 +66,10 @@ class GjiveData:
         self.U: np.ndarray = data["U"]
         self.Uf: np.ndarray = data["Uf"]
         self.Uk: np.ndarray = data["Uk"]
+
+        self.V: np.ndarray = data["V"]
+        self.W: np.ndarray = data["W"]
+        self.X: np.ndarray = data["X"]
 
         with metadata_path.open("r") as f:
             self.metadata: dict[str, Any] = json.load(f)
