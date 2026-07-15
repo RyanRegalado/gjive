@@ -3,6 +3,8 @@ from .utils import _as_2d_array, _validate_matrix_product, _validate_square_matr
 import numpy as np
 from numpy.typing import NDArray
 from typing import Sequence
+from dataset import GjiveData
+from estimate_class import GjiveEstimate
 
 
 def U_joint(
@@ -226,36 +228,48 @@ def U_ind(
 
     return Uk[:, :rk]
 
-def estimate_loading(A: NDArray[np.float64], 
-                     subspace_estimate: NDArray[np.float64]) -> NDArray[np.float64]:
+def estimate_loadings(Ak: NDArray[np.float64], 
+                     U_hat: NDArray[np.float64],
+                     Uf_hat: NDArray[np.float64],
+                     Uk_hat: NDArray[np.float64]) -> NDArray[np.float64]:
     
-    return A.T @ subspace_estimate
+    return ((Ak.T @ U_hat), (Ak.T @ Uf_hat), (Ak.T @ Uk_hat))
+
+
+def estimate_data(data: GjiveData,
+                  r: int,
+                  rfk: Sequence[int],
+                  rk: Sequence[int]) -> GjiveEstimate:
+    A = data.A
+    group_assignments = data.group_assignment
+    name = data.
+    
+    U_hat = U_joint(A, r, rfk, rk, group_assignments)
+
+    Uf_hat = []
+
+    for group_id in len(set(group_assignments)):
+        ufk_hat = U_group(A, U_hat, rfk, rk, group_assignments, group_id)
+        Uf_hat.append(ufk_hat)
+    
+    Uk_hat = []
+
+    for k, ak in enumerate(A):
+        group = group_assignments[k]
+        uk = U_ind(ak, U_hat, Uf_hat[group], rk[k])
+        Uk_hat.append(uk)
+    
+    Vk_hat = []
+    Wk_hat = []
+    Xk_hat = []
+
+    for k, ak in enumerate(A):
+        group = group_assignments[k]
+        vk, wk, xk = estimate_loadings(ak, U_hat, Uf_hat[group], Uk_hat[k])
+        Vk_hat.append(vk)
+        Wk_hat.append(wk)
+        Xk_hat.append(xk)
+
 
     
-
-
-def gjive(A, r, r_k, r_fk, r_ind, seed=None):
-    """Run the full GJIVE factorization workflow."""
-    rng = np.random.default_rng(seed)
-    A = np.asarray(A, dtype=float)
-    if A.ndim != 3:
-        raise ValueError(f"A must be a 3D array of shape (k, n, n). Received shape {A.shape}.")
-
-    k, n, n2 = A.shape
-    if n != n2:
-        raise ValueError(f"Each matrix in A must be square. Received shape {A.shape}.")
-    if len(r_k) != k:
-        raise ValueError(f"Expected {k} ranks, received {len(r_k)}.")
-    if r > n:
-        raise ValueError(f"Requested joint rank {r} exceeds dimension {n}.")
-    if r_fk > n:
-        raise ValueError(f"Requested group rank {r_fk} exceeds dimension {n}.")
-    if r_ind > n:
-        raise ValueError(f"Requested individual rank {r_ind} exceeds dimension {n}.")
-
-    Uj = U_joint(A, r, r_k)
-    Xg = rng.standard_normal((n, r_fk))
-    Ug = U_group(Uj, r_fk, X=Xg)
-    Xi = rng.standard_normal((n, r_ind))
-    Ui = U_ind(Uj, Ug, r_ind, X=Xi)
-    return Uj, Ug, Ui
+    return None

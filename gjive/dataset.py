@@ -79,6 +79,20 @@ class GjiveData:
             dtype=int,
         )
 
+        K = self.metadata["K"]
+
+        if len(self.Uk) != K:
+            raise ValueError("Number of Uk matrices does not match K.")
+
+        if len(self.V) != K:
+            raise ValueError("Number of V matrices does not match K.")
+
+        if len(self.W) != K:
+            raise ValueError("Number of W matrices does not match K.")
+
+        if len(self.X) != K:
+            raise ValueError("Number of X matrices does not match K.")
+
     # ------------------------------------------------------------------
     # Basic dataset information
     # ------------------------------------------------------------------
@@ -124,6 +138,10 @@ class GjiveData:
     def get_individual_subspace(self, k: int) -> np.ndarray:
         """Return the individual subspace Uk."""
         return self.Uk[k]
+
+    def get_loadings(self, k: int) -> np.ndarray:
+        """Return loadings for matrix k"""
+        return self.V[k], self.W[k], self.X[k]
 
     # ------------------------------------------------------------------
     # Convenience
