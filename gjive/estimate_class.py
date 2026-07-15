@@ -2,6 +2,7 @@ from pathlib import Path
 from typing import Any
 import json
 from dataclasses import dataclass
+import numpy as np
 
 @dataclass
 class GjiveEstimate:
@@ -26,11 +27,11 @@ class GjiveEstimate:
 
         with np.load(npz_path, allow_pickle=True) as f:
             self.U = f["U"]
-            self.Ufk = f["Ufk"]
+            self.Uf = f["Uf"]
             self.Uk = f["Uk"]
-            self.Vk = f["Vk"]
-            self.Wk = f["Wk"]
-            self.Xk = f["Xk"]
+            self.V = f["V"]
+            self.W = f["W"]
+            self.X = f["X"]
 
         with metadata_path.open("r") as f:
             self.metadata: dict[str, Any] = json.load(f)

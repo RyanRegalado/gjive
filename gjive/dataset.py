@@ -201,3 +201,14 @@ class GjiveData:
             return False
 
         return True
+    
+    # ------------------------------------------------------------------
+    # Class Methods
+    # ------------------------------------------------------------------
+
+    @classmethod
+    def from_name(cls, name: str) -> "GjiveData":
+        
+        cwd = Path.cwd()
+        data_dir = cwd / "data" / name
+        return cls(data_dir)

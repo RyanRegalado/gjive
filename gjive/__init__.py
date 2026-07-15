@@ -1,13 +1,8 @@
-from .estimate import U_ind, U_joint, U_group, gjive
 from .generate import generate_group, generate_ind, generate_joint, generate_matrix
-from .utils import check_orthogonal, generate_random_matrix, matrix_neg_half, orthonormalize 
+from .utils import check_orthogonal, generate_random_matrix, matrix_neg_half, orthonormalize, to_object_array
 
 
 __all__ = [
-    "U_joint",
-    "U_group",
-    "U_ind",
-    "estimate",
     "generate_joint",
     "generate_group",
     "generate_ind",
@@ -17,4 +12,5 @@ __all__ = [
     "matrix_neg_half",
     "orthonormalize",
     "check_orthogonal",
+    "to_object_array"
 ]

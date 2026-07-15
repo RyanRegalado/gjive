@@ -7,6 +7,7 @@ from .utils import (
     orthonormalize,
     _validate_matrix_dims,
     check_orthogonal,
+    to_object_array
 )
 from scipy.stats import ortho_group
 
@@ -171,22 +172,6 @@ def generate_matrix(
     return Ak, Vk, Wk, Xk
 
 
-def _to_object_array(items):
-    """
-    Convert variable-sized matrices into numpy object array.
-    """
-
-    arr = np.empty(
-        len(items),
-        dtype=object,
-    )
-
-    for i, item in enumerate(items):
-        arr[i] = item
-
-    return arr
-
-
 def generate_simulation_data(
     specs: SimulationSpec,
     simulation_name: str,
@@ -293,18 +278,18 @@ def generate_simulation_data(
     )
 
 
-    Uf_array = _to_object_array(
+    Uf_array = to_object_array(
         [
             Ufk[g]
             for g in sorted(Ufk)
         ]
     )
 
-    Uk_array = _to_object_array(Uk)
+    Uk_array = to_object_array(Uk)
 
-    V_array = _to_object_array(V)
-    W_array = _to_object_array(W)
-    X_array = _to_object_array(X)
+    V_array = to_object_array(V)
+    W_array = to_object_array(W)
+    X_array = to_object_array(X)
 
 
     np.savez(
@@ -318,13 +303,15 @@ def generate_simulation_data(
         X=X_array,
     )
 
+    metadata = asdict(specs)
+    metadata["dataset_name"] = simulation_name
 
     with (
         simulation_dir / "metadata.json"
     ).open("w") as f:
 
         json.dump(
-            asdict(specs),
+            metadata,
             f,
             indent=4,
         )

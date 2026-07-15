@@ -130,3 +130,22 @@ def check_orthonormal(A, name="__") -> bool:
     r = A.shape[1]
     if not np.allclose(A.T @ A, np.eye(r), atol=1e-8):
         raise ValueError(f"{name} must have orthonormal columns")
+    
+
+
+
+def to_object_array(items):
+    """
+    Convert variable-sized matrices into numpy object array.
+    """
+
+    arr = np.empty(
+        len(items),
+        dtype=object,
+    )
+
+    for i, item in enumerate(items):
+        arr[i] = item
+
+    return arr
+
