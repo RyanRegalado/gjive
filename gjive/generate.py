@@ -9,6 +9,7 @@ from .utils import (
     check_orthogonal,
     to_object_array
 )
+
 from scipy.stats import ortho_group
 
 # Data Handling
@@ -17,6 +18,9 @@ from pathlib import Path
 from .specifications import SimulationSpec
 from .dataset import GjiveData
 from dataclasses import asdict
+
+# Perturbations
+from .perturbations import scale_loadings, generate_noise
 
 
 def generate_joint(
@@ -118,15 +122,14 @@ def generate_matrix(
     Wk: Optional[np.ndarray] = None,
     Xk: Optional[np.ndarray] = None,
     seed: Optional[int] = None,
-    noise: Optional[int] = 0,
+    signal_scale: Optional[float] = 1.0,
+    noise: Optional[float] = 0.0,
 ):
     """
     Construct Ak and return its loading matrices.
     """
 
     n = U.shape[0]
-
-    rng = np.random.default_rng(seed)
 
     if n != Ufk.shape[0] or n != Uk.shape[0]:
         raise ValueError(
@@ -154,6 +157,11 @@ def generate_matrix(
             seed=seed,
         )
 
+    
+    # Adjust signal and raise minimum singular value to at least (1*signal scale)
+    Vk, Wk, Xk = scale_loadings(Vk, Wk, Xk, signal_scale)
+    
+
     Ak = (
         U @ Vk @ U.T
         + Ufk @ Wk @ Ufk.T
@@ -166,8 +174,12 @@ def generate_matrix(
         n,
     )
 
+    # Perturbations
+
     if noise != 0:
-        Ak += rng.standard_normal((n, n))
+        Ak += generate_noise(n, noise, seed)
+    elif noise < 0:
+        raise ValueError("Noise parameter must be larger than 0")
 
     return Ak, Vk, Wk, Xk
 
@@ -252,6 +264,8 @@ def generate_simulation_data(
             Ufk=Ufk[group],
             Uk=Uk[k],
             seed=specs.seed + 10000 + k,
+            signal_scale= specs.signal_scale,
+            noise = specs.noise,
         )
 
         A.append(Ak)

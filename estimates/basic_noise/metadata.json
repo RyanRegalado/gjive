@@ -1,6 +1,5 @@
 {
-    "n": 15,
-    "K": 10,
+    "dataset_name": "basic_noise",
     "r": 2,
     "rfk": [
         2,
@@ -18,10 +17,6 @@
         2,
         2
     ],
-    "p": 0.5,
-    "seed": 1,
-    "signal_scale": 1.0,
-    "noise": 0.0,
     "group_assignment": [
         1,
         1,
@@ -33,6 +28,5 @@
         0,
         1,
         0
-    ],
-    "dataset_name": "basic"
+    ]
 }

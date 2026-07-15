@@ -132,8 +132,6 @@ def check_orthonormal(A, name="__") -> bool:
         raise ValueError(f"{name} must have orthonormal columns")
     
 
-
-
 def to_object_array(items):
     """
     Convert variable-sized matrices into numpy object array.
@@ -148,4 +146,3 @@ def to_object_array(items):
         arr[i] = item
 
     return arr
-
