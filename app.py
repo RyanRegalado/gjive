@@ -112,12 +112,26 @@ else:
 with st.expander("Advanced Options"):
 
     customize_p = st.checkbox(
-        "Customize group assignment probability",
+        "Customize group assignment probability: *p*",
         value=False,
     )
 
-    if customize_p:
+    customize_signal = st.checkbox(
+        "Customize signal strength: *σ*",
+        value=False,
+    )
 
+    customize_noise = st.checkbox(
+        "Customize noise: *E*",
+        value=False,
+    )
+
+    # Default values
+    p = None
+    signal_scale = None
+    noise = None
+
+    if customize_p:
         p = st.slider(
             "Probability of Group 1",
             min_value=0.01,
@@ -125,10 +139,26 @@ with st.expander("Advanced Options"):
             value=0.50,
             step=0.01,
         )
-
     else:
-
         p = 0.5
+
+    if customize_signal:
+        signal_scale = st.slider(
+            "Signal Strength (σ)",
+            min_value=1.0,
+            max_value=10.0,
+            value=1.0,
+            step=0.1,
+        )
+
+    if customize_noise:
+        noise = st.slider(
+            "Noise Level (E)",
+            min_value=0.0,
+            max_value=5.0,
+            value=0.0,
+            step=0.1,
+        )
 
 # ==========================
 # Generate
