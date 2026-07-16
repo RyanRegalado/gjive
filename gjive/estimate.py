@@ -1,10 +1,11 @@
-from .utils import _as_2d_array, _validate_matrix_product, _validate_square_matrix, matrix_neg_half, orthonormalize, to_object_array
-
 import numpy as np
 from numpy.typing import NDArray
 from typing import Sequence
 from .dataset import GjiveData
 from .estimate_class import GjiveEstimate
+from .utils import to_object_array
+from irlb import irlb
+from time import perf_counter
 
 
 def U_joint(
@@ -39,6 +40,8 @@ def U_joint(
     np.ndarray, shape (n, r)
         Estimated joint subspace basis U.
     """
+
+    #start = perf_counter()
 
     A = np.asarray(A, dtype=float)
 
@@ -85,6 +88,7 @@ def U_joint(
         )
 
         U, _ , _ = np.linalg.svd(ak, full_matrices=False)
+        #Q, s, _, _, _= irlb(ak, signal_rank) Commented out, since its slower.
         Q = U[:, :signal_rank]
 
 
@@ -95,6 +99,8 @@ def U_joint(
     eigvals, eigvecs = np.linalg.eigh(M)
     idx = np.argsort(eigvals)[::-1]
 
+    #elapsed = perf_counter() - start
+    #print(f'Elapsed time: {elapsed}')
     return eigvecs[:, idx[:r]]
 
 
