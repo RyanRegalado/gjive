@@ -45,5 +45,5 @@ Thumbs.db
 .env
 
 # Generated data (if applicable)
-data/generated/
+data/
 estimates/
