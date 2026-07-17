@@ -11,11 +11,11 @@ def main():
     # Load a generated dataset
 
     specs = SimulationSpec(
-        n = 15,
-        K = 10,
+        n = 200,
+        K = 1000,
         r = 2,
         rfk = [2,2],
-        rk = [2] * 10,
+        rk = [2] * 1000,
         p = 0.5,
         seed = 1,
     )
