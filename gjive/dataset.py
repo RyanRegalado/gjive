@@ -173,28 +173,37 @@ class GjiveData:
 
         # Compare standard arrays
         if not np.array_equal(self.A, other.A):
+            print("Mismatch: A")
             return False
 
         if not np.array_equal(self.U, other.U):
+            print("Mismatch: U")
             return False
 
         if not np.array_equal(self.group_assignment, other.group_assignment):
+            print("Mismatch: group_assignment")
             return False
 
         # Compare object arrays / collections
         if len(self.Uf) != len(other.Uf):
+            print(f"Mismatch: Uf length ({len(self.Uf)} != {len(other.Uf)})")
             return False
 
-        for uf_self, uf_other in zip(self.Uf, other.Uf):
+        for i, (uf_self, uf_other) in enumerate(zip(self.Uf, other.Uf)):
             if not np.array_equal(uf_self, uf_other):
+                print(f"Mismatch: Uf[{i}]")
                 return False
 
         if len(self.Uk) != len(other.Uk):
+            print(f"Mismatch: Uk length ({len(self.Uk)} != {len(other.Uk)})")
             return False
 
-        for uk_self, uk_other in zip(self.Uk, other.Uk):
+        for i, (uk_self, uk_other) in enumerate(zip(self.Uk, other.Uk)):
             if not np.array_equal(uk_self, uk_other):
+                print(f"Mismatch: Uk[{i}]")
                 return False
+
+        return True
 
         # Compare metadata dictionaries
         if self.metadata != other.metadata:

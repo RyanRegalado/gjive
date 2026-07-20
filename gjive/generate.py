@@ -187,6 +187,7 @@ def generate_matrix(
 def generate_simulation_data(
     specs: SimulationSpec,
     simulation_name: str,
+    output_path: Path | None = None,
 ) -> GjiveData:
     """
     Generate a complete GJIVE simulation and save it.
@@ -280,11 +281,12 @@ def generate_simulation_data(
     # -----------------------------
     # Storage
     # -----------------------------
-
-    simulation_dir = (
-        Path("data")
-        / simulation_name
-    )
+    
+    if output_path is None:
+        simulation_dir = Path("data") / simulation_name
+        
+    else:
+        simulation_dir = output_path / simulation_name
 
     simulation_dir.mkdir(
         parents=True,

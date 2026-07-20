@@ -41,8 +41,6 @@ def U_joint(
         Estimated joint subspace basis U.
     """
 
-    #start = perf_counter()
-
     A = np.asarray(A, dtype=float)
 
     if A.ndim != 3:
@@ -88,7 +86,7 @@ def U_joint(
         )
 
         U, _ , _ = np.linalg.svd(ak, full_matrices=False)
-        #Q, s, _, _, _= irlb(ak, signal_rank) Commented out, since its slower.
+        #Q, s, _, _, _= irlb(ak, signal_rank)
         Q = U[:, :signal_rank]
 
 
@@ -99,8 +97,6 @@ def U_joint(
     eigvals, eigvecs = np.linalg.eigh(M)
     idx = np.argsort(eigvals)[::-1]
 
-    #elapsed = perf_counter() - start
-    #print(f'Elapsed time: {elapsed}')
     return eigvecs[:, idx[:r]]
 
 
