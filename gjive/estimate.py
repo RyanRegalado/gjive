@@ -4,7 +4,7 @@ from typing import Sequence
 from .dataset import GjiveData
 from .estimate_class import GjiveEstimate
 from .utils import to_object_array
-from irlb import irlb
+#from irlb import irlb
 from time import perf_counter
 
 
