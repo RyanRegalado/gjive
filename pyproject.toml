@@ -13,5 +13,5 @@ dependencies = [
 ]
 
 [tool.setuptools.packages.find]
-include = ["gjive", "gjive.*"]
+include = ["gjive", "gjive.*, error_analysis, error_analysis*"]
 exclude = ["tests*", "app*", "scripts*", "data*", "estimates*", "plots*", "figures*", "results*"]

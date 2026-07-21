@@ -248,6 +248,7 @@ def estimate_data(
     r: int,
     rfk: Sequence[int],
     rk: Sequence[int],
+    output_path: Path | None = None,
 ) -> GjiveEstimate:
 
     A = data.A
@@ -294,9 +295,14 @@ def estimate_data(
     # ------------------------------------------------------------------
     # Write estimate to disk
     # ------------------------------------------------------------------
-
+    
     cwd = Path().cwd()
-    estimate_dir = cwd / "estimates" / estimate_name
+
+    if output_path is None:
+        estimate_dir = cwd / "estimates" / estimate_name
+    else: 
+        estimate_dir = output_path
+    
     estimate_dir.mkdir(parents=True, exist_ok=True)
 
     np.savez(

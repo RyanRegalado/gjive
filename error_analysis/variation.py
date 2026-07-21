@@ -46,16 +46,20 @@ def generate_variation_K(base: SimulationSpec, k_values: list, name: str, track_
     return simulations, times
 
 
-def estimate_variation_K(datasets: list[GjiveData], track_time = True):
+def estimate_variation_K(datasets: list[GjiveData], name: str, track_time = True):
     estimates = []
     times = []
     length = len(datasets)
+
+    output_path = Path().cwd() / "estimates" / name
+
     for i, data in enumerate(datasets):
         print(f"\nEstimating... ({i + 1} / {length}) \n")
         t0 = perf_counter()
         estimates.append(estimate_data(data, data.metadata["r"], 
                               data.metadata["rfk"],
-                              data.metadata["rk"]))
+                              data.metadata["rk"],
+                              output_path / f'est_{data.metadata["K"]}'))
         if track_time:
             elapsed = perf_counter() - t0
             print(f'K = {data.metadata["K"]} completed in:\n{round(elapsed, 10)} seconds\n')

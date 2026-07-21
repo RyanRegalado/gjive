@@ -30,18 +30,30 @@ def control_simulation():
     print(f'Control Simulation completed in: {elapsed} seconds')
     return elapsed
 
+def variation_in_K():
+    k_values = K_vec(25, 8, 25)
+    datasets, dat_times = generate_variation_K(base, k_values, name = "variation_in_K")
+    estimates, est_times = estimate_variation_K(datasets, name = "variation_in_K")
+    return datasets, dat_times, estimates, est_times
+
 def main():
 
-    #control_simulation()
-
     # Variation in K
-    k_values = K_vec(25, 8, 25)
+    name = "variation_in_K"
+    datasets = []
+    data_dir = Path().cwd() / "data" / name
+    for file in data_dir.iterdir():
+        datasets.append(GjiveData(file))
 
-    datasets, times = generate_variation_K(base, k_values, name = "variation_in_K")
+    est_dir = Path().cwd() / "estimates" / name
+    estimates = []
+    for file in est_dir.iterdir():
+        estimates.append(GjiveEstimate(file))
 
-    estimates, times = estimate_variation_K(datasets)
+    norms = frob_norm_subspaces(datasets, estimates, do_Uk=False)
+    df = pd.DataFrame(norms)
+    df.to_csv(Path().cwd() / "error_analysis" / "csvs" / "variation_in_K.csv")
 
-    
 
 
     # Variation in n
