@@ -6,6 +6,8 @@ from .estimate_class import GjiveEstimate
 from .utils import to_object_array
 from irlb import irlb
 from time import perf_counter
+from pathlib import Path
+import json
 
 
 def U_joint(
@@ -14,6 +16,7 @@ def U_joint(
     rfk: Sequence[int],
     rk: Sequence[int],
     group_assignments: Sequence[int],
+    use_irlb: bool = True,
 ) -> NDArray[np.float64]:
     """
     Estimate the joint subspace U using the GJIVE joint projection step.
@@ -84,11 +87,12 @@ def U_joint(
             raise ValueError(
                 f"Requested signal rank {signal_rank} exceeds matrix dimension {n}."
         )
-
-        #U, _ , _ = np.linalg.svd(ak, full_matrices=False)
-        Q, _, _, _, _= irlb(ak, signal_rank)
-        #Q = U[:, :signal_rank]
-
+        
+        if use_irlb:
+            Q, _, _, _, _= irlb(ak, signal_rank)
+        else:
+            U, _ , _ = np.linalg.svd(ak, full_matrices=False)
+            Q = U[:, :signal_rank]
 
         M += Q @ Q.T
 
@@ -107,6 +111,7 @@ def U_group(
     rk: Sequence[int],
     group_assignments: Sequence[int],
     group_id: int,
+    use_irlb: bool = True,
 ) -> NDArray[np.float64]:
 
     """
@@ -159,18 +164,17 @@ def U_group(
     for i in group_idx:
         bk = P @ A[i]
 
-        #Uk, _, _= np.linalg.svd(bk, full_matrices=False)
-        
-
         signal_rank = rfk[group_id] + rk[i]
 
         if signal_rank > n:
             raise ValueError("Signal rank exceeds matrix dimension.")
-
-        #Q = Uk[:, :signal_rank]
         
-        Q, _, _, _, _= irlb(bk, signal_rank)
-
+        if use_irlb:
+            Q, _, _, _, _= irlb(bk, signal_rank)
+        else:
+            Uk, _, _= np.linalg.svd(bk, full_matrices=False)
+            Q = Uk[:, :signal_rank]
+        
         M += Q @ Q.T
 
     M /= len(group_idx)
@@ -186,6 +190,7 @@ def U_ind(
     U: NDArray[np.float64],
     Ufk: NDArray[np.float64],
     rk: int,
+    use_irlb: bool = True,
 ) -> NDArray[np.float64]:
     """
     Estimate the individual subspace U_k for one matrix in the GJIVE model.
@@ -227,13 +232,13 @@ def U_ind(
 
     residual = (np.eye(n) - U @ U.T - Ufk @ Ufk.T) @ Ak
 
-    #Uk, _, _ = np.linalg.svd(residual, full_matrices=False)
-    
-    Q, _, _, _, _= irlb(residual, rk)
+    if use_irlb:
+        Q, _, _, _, _= irlb(residual, rk)
+        return Q
+    else:
+        Uk, _, _ = np.linalg.svd(residual, full_matrices=False)
+        return Uk[:, :rk]
 
-    #return Uk[:, :rk]
-
-    return Q
 
 def estimate_loadings(Ak: NDArray[np.float64], 
                      U_hat: NDArray[np.float64],
@@ -243,18 +248,13 @@ def estimate_loadings(Ak: NDArray[np.float64],
     return ((Ak.T @ U_hat), (Ak.T @ Uf_hat), (Ak.T @ Uk_hat))
 
 
-from pathlib import Path
-import json
-import numpy as np
-
-...
-
 def estimate_data(
     data: GjiveData,
     r: int,
     rfk: Sequence[int],
     rk: Sequence[int],
     output_path: Path | None = None,
+    use_irlb: bool = True,
 ) -> GjiveEstimate:
 
     A = data.A
@@ -262,17 +262,17 @@ def estimate_data(
 
     estimate_name = data.metadata["dataset_name"]
 
-    U_hat = U_joint(A, r, rfk, rk, group_assignments)
+    U_hat = U_joint(A, r, rfk, rk, group_assignments, use_irlb)
 
     Uf_hat = []
     for group_id in range(len(set(group_assignments))):
-        ufk_hat = U_group(A, U_hat, rfk, rk, group_assignments, group_id)
+        ufk_hat = U_group(A, U_hat, rfk, rk, group_assignments, group_id, use_irlb)
         Uf_hat.append(ufk_hat)
 
     Uk_hat = []
     for k, ak in enumerate(A):
         group = group_assignments[k]
-        uk = U_ind(ak, U_hat, Uf_hat[group], rk[k])
+        uk = U_ind(ak, U_hat, Uf_hat[group], rk[k], use_irlb)
         Uk_hat.append(uk)
 
     Vk_hat = []
