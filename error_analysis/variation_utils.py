@@ -109,14 +109,27 @@ def generate_variation(
 
     return simulations, times
 
-def K_vec(start, n, step):
-    
-    if start < 10:
-        raise Warning(f'Start value of {start} is too small and may not form two distinct groups')
-    
-    k_values = np.arange(start, step * (n + 1), step)
+def ticks(start: int, n: int, step: int):
 
-    return k_values
+    ticks = np.arange(start, step * (n + 1), step)
+
+    return ticks
+
+def get_datasets(name):
+    datasets = []
+    data_dir = Path().cwd() / "data" / name
+    for file in data_dir.iterdir():
+        datasets.append(GjiveData(file))
+    return datasets
+
+def get_estimates(name):
+    estimates = []
+    est_dir = Path().cwd() / "estimates" / name
+    for file in est_dir.iterdir():
+        estimates.append(GjiveEstimate(file))
+    return estimates
+    
+
 
 
 def subspace_frob_norm(U, U_hat):
@@ -129,52 +142,56 @@ def subspace_frob_norm(U, U_hat):
     )
 
 
-def frob_norm_subspaces(datasets, estimates, do_U = True, do_Uf = True, do_Uk = True):
-    
+def frob_norm_subspaces(
+    datasets,
+    estimates,
+    parameter,
+    do_U=True,
+    do_Uf=True,
+    do_Uk=True,
+):
+
     if len(datasets) != len(estimates):
         raise ValueError(
             f"Length of Datasets {len(datasets)} does not match Estimates {len(estimates)}"
         )
-    
+
     norms = []
 
     for data, estimate in zip(datasets, estimates):
 
-        K = data.metadata["K"]
+        value = data.metadata[parameter]
 
         if do_U:
-            # Overall shared U
             norms.append({
-                "K": K,
+                parameter: value,
                 "matrix": "U",
                 "frob_norm": subspace_frob_norm(
                     data.U,
-                    estimate.U
-                )
+                    estimate.U,
+                ),
             })
-            
+
         if do_Uf:
-            # Family subspaces
             for m, (U, U_hat) in enumerate(zip(data.Uf, estimate.Uf)):
                 norms.append({
-                    "K": K,
+                    parameter: value,
                     "matrix": f"Uf{m}",
                     "frob_norm": subspace_frob_norm(
                         U,
-                        U_hat
-                    )
+                        U_hat,
+                    ),
                 })
 
         if do_Uk:
-            # Individual subspaces
             for k, (U, U_hat) in enumerate(zip(data.Uk, estimate.Uk)):
                 norms.append({
-                    "K": K,
+                    parameter: value,
                     "matrix": f"Uk{k}",
                     "frob_norm": subspace_frob_norm(
                         U,
-                        U_hat
-                    )
+                        U_hat,
+                    ),
                 })
 
     return norms
