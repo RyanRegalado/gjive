@@ -58,9 +58,10 @@ def main():
 
     # Variation in n
 
-    datasets = get_datasets("variation_in_n")
-    estimates = get_estimates("variation_in_n_irlb")
-    parameter = "n"
+    datasets = get_datasets("variation_in_r")
+
+    estimates, _ = estimate_variation(datasets, "r", "variation_in_r_irlb")
+    parameter = "r"
 
     norms = frob_norm_subspaces(
         datasets,
@@ -71,7 +72,7 @@ def main():
 
     df = pd.DataFrame(norms)
     df.to_csv(
-        Path.cwd() / "error_analysis" / "csvs" / "variation_in_n_irlb.csv",
+        Path.cwd() / "error_analysis" / "csvs" / "variation_in_r_irlb.csv",
         index=True,
     )
 

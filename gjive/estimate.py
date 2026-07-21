@@ -86,7 +86,7 @@ def U_joint(
         )
 
         #U, _ , _ = np.linalg.svd(ak, full_matrices=False)
-        Q, s, _, _, _= irlb(ak, signal_rank)
+        Q, _, _, _, _= irlb(ak, signal_rank)
         #Q = U[:, :signal_rank]
 
 
@@ -169,7 +169,7 @@ def U_group(
 
         #Q = Uk[:, :signal_rank]
         
-        Q, s, _, _, _= irlb(bk, signal_rank)
+        Q, _, _, _, _= irlb(bk, signal_rank)
 
         M += Q @ Q.T
 
