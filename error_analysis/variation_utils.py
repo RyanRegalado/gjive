@@ -10,61 +10,104 @@ from gjive.dataset import GjiveData
 from gjive.estimate_class import GjiveEstimate
 from gjive.specifications import SimulationSpec
 
-def generate_variation_K(base: SimulationSpec, k_values: list, name: str, track_time: bool = True):
-    simulations = []
-    times = {}
+def estimate_variation(
+    datasets: list[GjiveData],
+    parameter: str,
+    name: str,
+    track_time: bool = True,
+):
+    estimates = []
+    times = []
 
-    output_path = Path().cwd() / "data" / name
+    output_path = Path.cwd() / "estimates" / name
 
-    for i, k in enumerate(k_values):
-        k = int(k)
-
-        current_spec = SimulationSpec(
-            n = base.n,
-            K = k,
-            r = base.r,
-            rfk = [base.rfk[0]] * (len(base.rfk)),
-            rk = [base.rk[0]] * k,
-            p = base.p,
-            seed = base.seed,
-            signal_scale=base.signal_scale,
-            noise = base.noise,
-        )
+    for i, data in enumerate(datasets):
+        print(f"\nEstimating... ({i+1}/{len(datasets)})")
 
         if track_time:
             t0 = perf_counter()
-        
-        sim_number = f'sim_{k}'
-        sim = generate_simulation_data(current_spec, sim_number, output_path)
-        simulations.append(sim)
-        
+
+        estimates.append(
+            estimate_data(
+                data,
+                data.metadata["r"],
+                data.metadata["rfk"],
+                data.metadata["rk"],
+                output_path / f'est_{data.metadata[parameter]}'
+            )
+        )
+
         if track_time:
             elapsed = perf_counter() - t0
-            times[int(k)] = elapsed
-            print(f'Simulation {i} with K = {k} completed in: \n{round(elapsed, 10)} seconds\n')
-    
-    return simulations, times
+            print(
+                f'{parameter}={data.metadata[parameter]} '
+                f'completed in {elapsed:.4f} seconds'
+            )
+            times.append(elapsed)
 
-
-def estimate_variation_K(datasets: list[GjiveData], name: str, track_time = True):
-    estimates = []
-    times = []
-    length = len(datasets)
-
-    output_path = Path().cwd() / "estimates" / name
-
-    for i, data in enumerate(datasets):
-        print(f"\nEstimating... ({i + 1} / {length}) \n")
-        t0 = perf_counter()
-        estimates.append(estimate_data(data, data.metadata["r"], 
-                              data.metadata["rfk"],
-                              data.metadata["rk"],
-                              output_path / f'est_{data.metadata["K"]}'))
-        if track_time:
-            elapsed = perf_counter() - t0
-            print(f'K = {data.metadata["K"]} completed in:\n{round(elapsed, 10)} seconds\n')
-            times.append(elapsed) 
     return estimates, times
+
+def generate_variation(
+    base: SimulationSpec,
+    values: list[int],
+    parameter: str,
+    name: str,
+    track_time: bool = True,
+):
+    simulations = []
+    times = {}
+
+    output_path = Path.cwd() / "data" / name
+
+    for i, value in enumerate(map(int, values)):
+
+        kwargs = {
+            "n": base.n,
+            "K": base.K,
+            "r": base.r,
+            "rfk": base.rfk.copy(),
+            "rk": base.rk.copy(),
+            "p": base.p,
+            "seed": base.seed,
+            "signal_scale": base.signal_scale,
+            "noise": base.noise,
+        }
+
+        if parameter == "K":
+            kwargs["K"] = value
+            kwargs["rk"] = [base.rk[0]] * value
+
+        elif parameter == "n":
+            kwargs["n"] = value
+
+        elif parameter == "r":
+            kwargs["r"] = value
+
+        else:
+            raise ValueError(f"Unsupported parameter '{parameter}'")
+
+        current_spec = SimulationSpec(**kwargs)
+
+        if track_time:
+            t0 = perf_counter()
+
+        sim = generate_simulation_data(
+            current_spec,
+            f"sim_{value}",
+            output_path,
+        )
+
+        simulations.append(sim)
+
+        if track_time:
+            elapsed = perf_counter() - t0
+            times[value] = elapsed
+            print(
+                f"Simulation {i+1}: {parameter}={value} completed in "
+                f"{elapsed:.4f} seconds"
+            )
+
+    return simulations, times
 
 def K_vec(start, n, step):
     

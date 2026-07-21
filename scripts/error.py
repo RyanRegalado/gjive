@@ -6,7 +6,7 @@ from pathlib import Path
 from gjive.generate import generate_simulation_data
 from gjive.estimate import estimate_data
 # Error Analysis Functions
-from error_analysis.variation import generate_variation_K, estimate_variation_K, K_vec, frob_norm_subspaces
+from error_analysis.variation_utils import estimate_variation, K_vec, frob_norm_subspaces, generate_variation
 # Classes
 from gjive.dataset import GjiveData
 from gjive.estimate_class import GjiveEstimate
@@ -30,16 +30,15 @@ def control_simulation():
     print(f'Control Simulation completed in: {elapsed} seconds')
     return elapsed
 
-def variation_in_K():
-    k_values = K_vec(25, 8, 25)
-    datasets, dat_times = generate_variation_K(base, k_values, name = "variation_in_K")
-    estimates, est_times = estimate_variation_K(datasets, name = "variation_in_K")
-    return datasets, dat_times, estimates, est_times
 
 def main():
 
     # Variation in K
     name = "variation_in_K"
+    vec = K_vec(25, 8, 25)
+    datasets, _ = generate_variation(base, vec, "K", name)
+    estimate_variation(datasets, "K", name)
+
     datasets = []
     data_dir = Path().cwd() / "data" / name
     for file in data_dir.iterdir():
@@ -53,8 +52,6 @@ def main():
     norms = frob_norm_subspaces(datasets, estimates, do_Uk=False)
     df = pd.DataFrame(norms)
     df.to_csv(Path().cwd() / "error_analysis" / "csvs" / "variation_in_K.csv")
-
-
 
     # Variation in n
 
