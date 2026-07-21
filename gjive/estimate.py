@@ -4,7 +4,7 @@ from typing import Sequence
 from .dataset import GjiveData
 from .estimate_class import GjiveEstimate
 from .utils import to_object_array
-#from irlb import irlb
+from irlb import irlb
 from time import perf_counter
 
 
@@ -85,9 +85,9 @@ def U_joint(
                 f"Requested signal rank {signal_rank} exceeds matrix dimension {n}."
         )
 
-        U, _ , _ = np.linalg.svd(ak, full_matrices=False)
-        #Q, s, _, _, _= irlb(ak, signal_rank)
-        Q = U[:, :signal_rank]
+        #U, _ , _ = np.linalg.svd(ak, full_matrices=False)
+        Q, s, _, _, _= irlb(ak, signal_rank)
+        #Q = U[:, :signal_rank]
 
 
         M += Q @ Q.T
@@ -159,7 +159,7 @@ def U_group(
     for i in group_idx:
         bk = P @ A[i]
 
-        Uk, _, _= np.linalg.svd(bk, full_matrices=False)
+        #Uk, _, _= np.linalg.svd(bk, full_matrices=False)
         
 
         signal_rank = rfk[group_id] + rk[i]
@@ -167,7 +167,9 @@ def U_group(
         if signal_rank > n:
             raise ValueError("Signal rank exceeds matrix dimension.")
 
-        Q = Uk[:, :signal_rank]
+        #Q = Uk[:, :signal_rank]
+        
+        Q, s, _, _, _= irlb(bk, signal_rank)
 
         M += Q @ Q.T
 
@@ -225,9 +227,13 @@ def U_ind(
 
     residual = (np.eye(n) - U @ U.T - Ufk @ Ufk.T) @ Ak
 
-    Uk, _, _ = np.linalg.svd(residual, full_matrices=False)
+    #Uk, _, _ = np.linalg.svd(residual, full_matrices=False)
+    
+    Q, _, _, _, _= irlb(residual, rk)
 
-    return Uk[:, :rk]
+    #return Uk[:, :rk]
+
+    return Q
 
 def estimate_loadings(Ak: NDArray[np.float64], 
                      U_hat: NDArray[np.float64],

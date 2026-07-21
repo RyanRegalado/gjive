@@ -120,6 +120,7 @@ def get_datasets(name):
     data_dir = Path().cwd() / "data" / name
     for file in data_dir.iterdir():
         datasets.append(GjiveData(file))
+        print(f'Retrieved data file: {file}')
     return datasets
 
 def get_estimates(name):
@@ -127,6 +128,7 @@ def get_estimates(name):
     est_dir = Path().cwd() / "estimates" / name
     for file in est_dir.iterdir():
         estimates.append(GjiveEstimate(file))
+        print(f'Retrieved estimate file: {file}')
     return estimates
     
 

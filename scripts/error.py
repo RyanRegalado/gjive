@@ -21,6 +21,7 @@ base = SimulationSpec(
     rk = [3] * 100,
     p = 0.5,
     seed = 1,
+    noise = 1
 )
 
 def control_simulation():
@@ -31,38 +32,52 @@ def control_simulation():
     return elapsed
 
 
-def variation_K():
-    name = "variation_in_K"
-    datasets = get_datasets(name)
-    estimates = get_estimates(name)
+def run_variation(parameter: str, values):
+    name = f"variation_in_{parameter}"
 
-    norms = frob_norm_subspaces(datasets, estimates, do_Uk=False)
+    datasets, _ = generate_variation(base, values, parameter, name)
+    estimates, _ = estimate_variation(datasets, parameter, name)
+
+    norms = frob_norm_subspaces(
+        datasets,
+        estimates,
+        parameter,
+        do_Uk=False,
+    )
+
     df = pd.DataFrame(norms)
-    df.to_csv(Path().cwd() / "error_analysis" / "csvs" / "variation_in_K.csv")
+    df.to_csv(
+        Path.cwd() / "error_analysis" / "csvs" / f"{name}.csv",
+        index=False,
+    )
 
 def main():
 
     # Variation in K
-    #variation_K()
+    
 
     # Variation in n
-    name = "variation_in_n"
-    
-    values = ticks(25, 20, 25)
-    datasets, _ = generate_variation(base, values, "n", name)
-    estimates, _ = estimate_variation(datasets, "n", name)
 
-    #datasets = get_datasets(name)
-    #estimates = get_estimates(name)
-    
-    norms = frob_norm_subspaces(datasets, estimates, "n", do_Uk=False)
+    datasets = get_datasets("variation_in_n")
+    estimates = get_estimates("variation_in_n_irlb")
+    parameter = "n"
+
+    norms = frob_norm_subspaces(
+        datasets,
+        estimates,
+        parameter,
+        do_Uk=False,
+    )
+
     df = pd.DataFrame(norms)
-    df.to_csv(Path().cwd() / "error_analysis" / "csvs" / "variation_in_n.csv")
+    df.to_csv(
+        Path.cwd() / "error_analysis" / "csvs" / "variation_in_n_irlb.csv",
+        index=True,
+    )
 
 
-    
     # Variation in r
-
+    
 
     # Variation in rfk
 
