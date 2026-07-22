@@ -8,6 +8,7 @@ from irlb import irlb
 from time import perf_counter
 from pathlib import Path
 import json
+from .estimate_spec import EstimateSpec
 
 
 def U_joint(
@@ -250,15 +251,17 @@ def estimate_loadings(Ak: NDArray[np.float64],
 
 def estimate_data(
     data: GjiveData,
-    r: int,
-    rfk: Sequence[int],
-    rk: Sequence[int],
+    spec: EstimateSpec,
     output_path: Path | None = None,
     use_irlb: bool = True,
 ) -> GjiveEstimate:
+    
 
     A = data.A
     group_assignments = data.group_assignment
+    r = spec.r
+    rfk = spec.rfk
+    rk = spec.rk
 
     estimate_name = data.metadata["dataset_name"]
 

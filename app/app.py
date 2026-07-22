@@ -1,7 +1,7 @@
 import streamlit as st
 from pathlib import Path
 
-from gjive.specifications import SimulationSpec
+from gjive.simulation_spec import SimulationSpec
 from gjive.generate import generate_simulation_data
 from app_utils import find_simulations
 

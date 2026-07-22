@@ -2,13 +2,181 @@ import numpy as np
 import pandas as pd
 from time import perf_counter
 from pathlib import Path
+from typing import Any, Sequence
+from dataclasses import replace
 # GJIVE Functions
 from gjive.generate import generate_simulation_data
 from gjive.estimate import estimate_data
 # Classes
 from gjive.dataset import GjiveData
 from gjive.estimate_class import GjiveEstimate
-from gjive.specifications import SimulationSpec
+from gjive.simulation_spec import SimulationSpec
+from gjive.estimate_spec import EstimateSpec
+from experiment_result import ExperimentResult
+
+
+def run_variation(simulation_spec: SimulationSpec,
+                  estimate_spec: EstimateSpec,
+                  seed: int,
+                  parameter_name: str,
+                  parameter_value: Any,
+                  do_U: bool = True,
+                  do_Ufk: bool = True,
+                  uk_mode: str = "none") -> list:
+    
+    UK_MODES = {"none", "all", "summary"}
+
+    if uk_mode not in UK_MODES:
+        raise ValueError(
+            f"uk_mode must be one of {UK_MODES}"
+        )
+    
+    spec = replace(
+        simulation_spec, 
+        **{parameter_name:parameter_value}
+        )
+
+    data = generate_simulation_data(
+        spec,
+        name = f"{parameter_name}_{parameter_value}"
+        )
+    
+    est_spec = replace(
+        estimate_spec,
+        **{parameter_name:parameter_value}
+    )
+    
+    estimate = estimate_data(data, est_spec)
+
+    results = []
+
+    if do_U:
+        results.append(
+            ExperimentResult(
+                seed=seed,
+                parameter_name=parameter_name,
+                parameter_value=parameter_value,
+                subspace="U",
+                frob_norm=subspace_error(
+                    data.U,
+                    estimate.U
+                )
+            )
+        )
+
+    if do_Ufk:
+        for group in range(len(data.Uf)):
+            results.append(
+                ExperimentResult(
+                    seed=seed,
+                    parameter_name=parameter_name,
+                    parameter_value=parameter_value,
+                    subspace=f"Uf_{group}",
+                    frob_norm=subspace_error(
+                        data.Uf[group],
+                        estimate.Uf[group]
+                    )
+                )
+            )
+
+    if uk_mode == "all":
+        for k in range(len(data.Uk)):
+            results.append(
+                ExperimentResult(
+                    seed=seed,
+                    parameter_name=parameter_name,
+                    parameter_value=parameter_value,
+                    subspace=f"Uk_{k}",
+                    frob_norm=subspace_error(
+                        data.Uk[k],
+                        estimate.Uk[k]
+                    )
+                )
+            )
+
+    elif uk_mode == "summary":
+        uk_errors = []
+
+        for k in range(len(data.Uk)):
+            uk_errors.append(
+                subspace_error(
+                    data.Uk[k],
+                    estimate.Uk[k]
+                )
+            )
+
+        results.extend([
+            ExperimentResult(
+                seed=seed,
+                parameter_name=parameter_name,
+                parameter_value=parameter_value,
+                subspace="Uk_mean",
+                frob_norm=float(np.mean(uk_errors))
+            ),
+            ExperimentResult(
+                seed=seed,
+                parameter_name=parameter_name,
+                parameter_value=parameter_value,
+                subspace="Uk_std",
+                frob_norm=float(np.std(uk_errors))
+            ),
+            ExperimentResult(
+                seed=seed,
+                parameter_name=parameter_name,
+                parameter_value=parameter_value,
+                subspace="Uk_max",
+                frob_norm=float(np.max(uk_errors))
+            )
+        ])
+    
+    return results
+
+
+
+
+
+        
+def subspace_error(U, U_hat):
+    
+    return np.linalg.norm(
+        U @ U.T - U_hat @ U_hat.T, 
+        ord = "fro"
+        )
+
+def validate_parameter(parameter_name, value):
+
+    PARAMETER_TYPES = {
+        "K": int,
+        "n": int,
+        "r": int,
+        "snr": float,
+        "rfk": list(int),
+        "rk": list(int)
+    }
+
+    if value != PARAMETER_TYPES[parameter_name]:
+        raise ValueError(
+            f"Parameter name: {parameter_name} is not of type {str(PARAMETER_TYPES[parameter_name])}"
+        )              
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 def estimate_variation(
     datasets: list[GjiveData],
@@ -115,6 +283,33 @@ def ticks(start: int, n: int, step: int):
 
     return ticks
 
+def run_variation_trial(
+    base: SimulationSpec,
+    values: list[int],
+    parameter: str,
+    variation_name: str,
+    seed: int,
+):
+    spec = replace(base, seed=seed)      # or build a new SimulationSpec
+
+    datasets, _ = generate_variation(
+        spec,
+        values,
+        parameter,
+        f"{variation_name}/seed_{seed}",
+    )
+
+    estimates, _ = estimate_variation(
+        datasets,
+        parameter,
+        f"{variation_name}/seed_{seed}",
+    )
+
+    return estimates
+
+
+
+
 def get_datasets(name):
     datasets = []
     data_dir = Path().cwd() / "data" / name
@@ -131,9 +326,6 @@ def get_estimates(name):
         print(f'Retrieved estimate file: {file}')
     return estimates
     
-
-
-
 def subspace_frob_norm(U, U_hat):
     """
     Computes Frobenius norm between two subspace projectors.
@@ -142,7 +334,6 @@ def subspace_frob_norm(U, U_hat):
         U @ U.T - U_hat @ U_hat.T,
         ord="fro"
     )
-
 
 def frob_norm_subspaces(
     datasets,

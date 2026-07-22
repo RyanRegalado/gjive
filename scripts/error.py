@@ -10,7 +10,7 @@ from error_analysis.variation_utils import estimate_variation, generate_variatio
 # Classes
 from gjive.dataset import GjiveData
 from gjive.estimate_class import GjiveEstimate
-from gjive.specifications import SimulationSpec
+from gjive.simulation_spec import SimulationSpec
 
 
 base = SimulationSpec(
@@ -75,6 +75,10 @@ def main():
         Path.cwd() / "error_analysis" / "csvs" / "variation_in_r_irlb.csv",
         index=True,
     )
+
+
+
+
 
 
     # Variation in r

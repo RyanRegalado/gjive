@@ -15,7 +15,7 @@ from scipy.stats import ortho_group
 # Data Handling
 import json
 from pathlib import Path
-from .specifications import SimulationSpec
+from .simulation_spec import SimulationSpec
 from .dataset import GjiveData
 from dataclasses import asdict
 
@@ -122,6 +122,8 @@ def generate_matrix(
     Wk: Optional[np.ndarray] = None,
     Xk: Optional[np.ndarray] = None,
     seed: Optional[int] = None,
+
+
     signal_scale: Optional[float] = 1.0,
     noise: Optional[float] = 0.0,
 ):

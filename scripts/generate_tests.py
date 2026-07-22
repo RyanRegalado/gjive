@@ -1,6 +1,6 @@
 import numpy as np
 from pathlib import Path
-from gjive.specifications import SimulationSpec
+from gjive.simulation_spec import SimulationSpec
 from gjive.generate import generate_simulation_data
 from gjive.dataset import GjiveData
 from gjive.utils import check_orthogonal, check_orthonormal

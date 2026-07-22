@@ -5,7 +5,7 @@ from gjive.utils import check_orthogonal, check_orthonormal
 
 from pathlib import Path
 
-from gjive.specifications import SimulationSpec
+from gjive.simulation_spec import SimulationSpec
 from gjive.generate import generate_simulation_data
 
 def og_test() -> None:

@@ -3,7 +3,7 @@ from pathlib import Path
 from gjive.dataset import GjiveData
 from gjive.estimate import estimate_data
 from gjive.generate import generate_simulation_data
-from gjive.specifications import SimulationSpec
+from gjive.simulation_spec import SimulationSpec
 import numpy as np
 
 
