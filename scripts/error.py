@@ -1,150 +1,73 @@
+from pathlib import Path
 import numpy as np
 import pandas as pd
-from time import perf_counter
-from pathlib import Path
-# GJIVE Functions
-from gjive.generate import generate_simulation_data
-from gjive.estimate import estimate_data
-# Error Analysis Functions
-from error_analysis.variation_utils import save_sweep_results
-# Classes
-from gjive.dataset import GjiveData
-from gjive.estimate_class import GjiveEstimate
+
 from gjive.simulation_spec import SimulationSpec
-from gjive.estimate_spec import EstimateSpec
-
-from error_analysis.variation_utils import run_experiment, run_parameter_sweep, run_seed_sweep
-from error_analysis.experiment_result import ExperimentResult
-
-
-base = SimulationSpec(
-    n = 200,
-    K = 100,
-    r = 3,
-    rfk = [3, 3],
-    rk = [3] * 100,
-    p = 0.5,
-    seed = 1,
-    snr = 0.2
+from error_analysis.variation_utils import (
+    run_seed_sweep,
+    sweep_results
 )
 
+SEEDS = list(range(10))
+
+
 def main():
-    par = run_parameter_sweep(base, "K", [20, 30, 40, 50, 60, 70], 1, "test_par_sweep")
 
-    print(f"Parameter sweep: {par.parameter_name}")
-    print(f"Number of parameter values tested: {len(par.experiments)}\n")
+    base_spec = SimulationSpec(
+        n=200,
+        K=100,
+        r=3,
+        rfk=[3, 3],
+        rk=[3] * 100,
+        p=0.5,
+        snr=1,
+        seed=1,
+    )
 
-    for parameter_value, experiments in par.experiments.items():
-        print(f"{par.parameter_name} = {parameter_value}")
+    sweeps = {
 
-        for result in experiments:
-            print(
-                f"  {result.matrix_name}: "
-                f"Frobenius error = {result.frob_norm:.4f}"
-            )
+        "K": list(range(25, 501, 25)),
 
-        print()
+        "r": list(range(1, 21)),
 
-def seed_test():
-    sweep = run_seed_sweep(
-            base,
-            "K",
-            [20, 30, 40, 50],
-            [1, 2, 3],
-            "test_seed_sweep"
+        "n": list(range(25, 501, 25)),
+
+        "rfk": [[i, i] for i in range(1, 21)],
+
+        "rk": [[i] * base_spec.K for i in range(1, 11)],
+
+        "snr": [0.125, 0.25, 0.5, 1, 2, 4, 8, 16],
+
+        "p": np.arange(0.1, 1.01, 0.1).tolist(),
+    }
+
+    all_results = []
+
+    for parameter, values in sweeps.items():
+
+        print(f"\nRunning {parameter} sweep...")
+
+        results = run_seed_sweep(
+            base_spec=base_spec,
+            parameter_name=parameter,
+            values=values,
+            sweep_name=f"full_sweep/variation_in_{parameter}",
+            seeds=SEEDS,
         )
 
-    print(f"Parameter: {sweep.parameter_name}")
-    print(f"Seeds tested: {list(sweep.sweeps.keys())}")
+        all_results.extend(sweep_results(results))
 
-    for seed, parameter_sweep in sweep.sweeps.items():
-        print(f"\nSeed = {seed}")
+    output_path = Path.cwd() / "error_analysis_results" / "csvs" / "full_sweep.csv"
 
-        for value, results in parameter_sweep.experiments.items():
-            print(f"  K = {value}: {len(results)} results")
+    df = pd.DataFrame(all_results)
+    df.to_csv(output_path, index=False)
 
-            for result in results:
-                print(
-                    f"    {result.matrix_name}: "
-                    f"{result.frob_norm:.4f}"
-                )
-    return None
-
-def test_save_seed_sweep():
-
-    sweep = run_seed_sweep(
-        base,
-        parameter_name="K",
-        values=[20, 30],
-        seeds=[1, 2],
-        sweep_name="test_seed_sweep",
-    )
-
-    output_file = Path().cwd() / "error_analysis" / "csvs" / "test_seed_sweep.csv"
-
-    save_sweep_results(
-        sweep,
-        output_file,
-    )
-
-    print(f"Saved results to: {output_file}")
-
-    # Verify file contents
-    df = pd.read_csv(output_file)
-
-    print("\nCSV Preview:")
-    print(df.head())
-
-    print("\nRows:", len(df))
-
-def test_K_sweep():
-    K_values = list(range(10, 101, 10))
-    seeds = list(range(1, 8))
-
-    print(f"K values: {K_values}")
-    print(f"Seeds: {seeds}")
-
-    sweep = run_seed_sweep(
-        base,
-        parameter_name="K",
-        values=K_values,
-        seeds=seeds,
-        sweep_name="K_sweep",
-        parallel=False
-    )
-
-    output_path = Path("results") / "K_sweep.csv"
-
-    save_sweep_results(
-        sweep,
-        output_path,
-    )
-
-    print(f"\nSaved results to: {output_path}")
-
-    # Optional sanity check
-    import pandas as pd
-
-    df = pd.read_csv(output_path)
-
-    print("\nResults summary:")
-    print(df.head())
-
-    print("\nRows generated:", len(df))
-
-    expected_rows = (
-        len(K_values)
-        * len(seeds)
-        * 3   # U, Uf_0, Uf_1
-    )
-
-    print("Expected rows:", expected_rows)
-
-    assert len(df) == expected_rows
+    print()
+    print("=" * 60)
+    print(f"Saved {len(all_results)} simulations")
+    print(output_path)
+    print("=" * 60)
 
 
 if __name__ == "__main__":
-    start = perf_counter()
-    test_K_sweep()
-    elapsed = perf_counter() - start
-    print(f'Elapsed time: {round(elapsed, 4)} seconds')
+    main()

@@ -1,31 +1,53 @@
-import numpy as np
-import pandas as pd
+"""Utilities for parameter and seed sweeps in GJIVE experiments.
+
+Common parameter meanings:
+- base_spec: base SimulationSpec used to generate simulation data.
+- parameter_name: the name of the parameter being varied.
+- values: the candidate values for the sweep.
+- seed: RNG seed for reproducibility.
+- sweep_name: optional folder name used to organize sweep outputs.
+- parallel: whether to execute independent runs concurrently.
+- n_jobs: number of worker processes for joblib.
+"""
+
+from dataclasses import replace
 from pathlib import Path
 from typing import Any, Sequence
-from dataclasses import replace
+
+import numpy as np
+import pandas as pd
 from joblib import Parallel, delayed
-# GJIVE Functions
-from gjive.generate import generate_simulation_data
+
 from gjive.estimate import estimate_data
-# Classes
-from gjive.dataset import GjiveData
-from gjive.estimate_class import GjiveEstimate
-from gjive.simulation_spec import SimulationSpec
+from gjive.generate import generate_simulation_data
 from gjive.estimate_spec import EstimateSpec
+from gjive.simulation_spec import SimulationSpec
 from error_analysis.experiment_result import ExperimentResult
 from error_analysis.paramater_sweep import ParameterSweep
 from error_analysis.seed_sweep import SeedSweep
 
+VALID_PARAMETER_TYPES = {
+    "n": int,
+    "K": int,
+    "r": int,
+    "rfk": list,
+    "rk": list,
+    "p": (int, float),
+    "snr": (int, float),
+}
 
-def run_experiment(simulation_spec: SimulationSpec,
-                  estimate_spec: EstimateSpec,
-                  seed: int,
-                  parameter_name: str,
-                  parameter_value: Any,
-                  parent_dir: Path,
-                  do_U: bool = True,
-                  do_Ufk: bool = True,
-                  uk_mode: str = "none") -> list:
+
+def run_experiment(
+    simulation_spec: SimulationSpec,
+    estimate_spec: EstimateSpec,
+    seed: int,
+    parameter_name: str,
+    parameter_value: Any,
+    parent_dir: Path,
+    do_U: bool = True,
+    do_Ufk: bool = True,
+    uk_mode: str = "none",
+) -> list[ExperimentResult]:
     
     UK_MODES = {"none", "all", "summary"}
 
@@ -137,17 +159,34 @@ def run_experiment(simulation_spec: SimulationSpec,
 def run_parameter_value(
     base_spec: SimulationSpec,
     parameter_name: str,
-    value,
+    value: Any,
     seed: int,
     sweep_name: str | None = None,
-):
-    """
-    Configure one parameter value and run the experiment.
+) -> tuple[Any, list[ExperimentResult]]:
+    """Configure one parameter value and run the experiment.
+
+    Parameters
+    ----------
+    base_spec : SimulationSpec
+        Base simulation configuration.
+    parameter_name : str
+        Name of the parameter being varied.
+    value : Any
+        Parameter value to test.
+    seed : int
+        Random seed used for reproducible generation.
+    sweep_name : str | None, optional
+        Optional folder name for output organization.
+
+    Returns
+    -------
+    tuple[Any, list[ExperimentResult]]
+        The parameter value and its experiment results.
     """
 
     updates = {
         parameter_name: value,
-        "seed": seed
+        "seed": seed,
     }
 
     if parameter_name == "K":
@@ -175,14 +214,39 @@ def run_parameter_value(
     return value, results
 
 def run_parameter_sweep(
-    base_spec,
-    parameter_name,
-    values,
-    seed,
-    sweep_name=None,
-    parallel=False,
-    n_jobs=-1
-):
+    base_spec: SimulationSpec,
+    parameter_name: str,
+    values: Sequence[Any],
+    seed: int,
+    sweep_name: str | None = None,
+    parallel: bool = True,
+    n_jobs: int = -1,
+) -> ParameterSweep:
+
+    """Run a parameter sweep over a sequence of values.
+
+    Parameters
+    ----------
+    base_spec : SimulationSpec
+        Base simulation configuration.
+    parameter_name : str
+        Parameter to vary.
+    values : Sequence[Any]
+        Values to evaluate in the sweep.
+    seed : int
+        Seed for reproducible generation.
+    sweep_name : str | None, optional
+        Optional root folder for outputs.
+    parallel : bool, optional
+        Whether to execute experiments in parallel.
+    n_jobs : int, optional
+        Number of worker processes for joblib.
+
+    Returns
+    -------
+    ParameterSweep
+        Sweep results keyed by value.
+    """
 
     for value in values:
         validate_parameter(parameter_name, value)
@@ -226,61 +290,70 @@ def run_parameter_sweep(
     )
 
 def run_seed_sweep(
-        base_spec: SimulationSpec,
-        parameter_name: str,
-        values: Sequence,
-        seeds: Sequence[int],
-        sweep_name: str | None = None,
-        parallel: bool = False,
-    ) -> SeedSweep:
+    base_spec: SimulationSpec,
+    parameter_name: str,
+    values: Sequence[int],
+    seeds: Sequence[int],
+    sweep_name: str,
+    parallel: bool = True,
+) -> SeedSweep:
+    """Run multiple parameter sweeps across several seeds.
 
-        sweeps = {}
+    Parameters
+    ----------
+    base_spec : SimulationSpec
+        Base simulation configuration.
+    parameter_name : str
+        Parameter being varied.
+    values : Sequence[int]
+        Parameter values to test.
+    seeds : Sequence[int]
+        Random seeds to use for each sweep.
+    sweep_name : str | None, optional
+        Optional output root name.
+    parallel : bool, optional
+        Whether each parameter sweep is parallelized.
 
-        for seed in seeds:
-            print(f'Running sweep with seed: {seed}')
+    Returns
+    -------
+    SeedSweep
+        Results keyed by seed.
+    """
 
-            parameter_sweep = run_parameter_sweep(
-                base_spec,
-                parameter_name,
-                values,
-                seed,
-                sweep_name,
-                parallel
-            )
+    sweeps: dict[int, ParameterSweep] = {}
+    for seed in seeds:
+        print(f"Running sweep with seed: {seed}")
 
-            sweeps[seed] = parameter_sweep
-
-        return SeedSweep(
-            parameter_name=parameter_name,
-            sweeps=sweeps,
+        parameter_sweep = run_parameter_sweep(
+            base_spec,
+            parameter_name,
+            values,
+            seed,
+            sweep_name,
+            parallel,
         )
 
-def subspace_error(U, U_hat):
-    return np.linalg.norm(
-        U @ U.T - U_hat @ U_hat.T, 
-        ord = "fro"
-        )
+        sweeps[seed] = parameter_sweep
 
-def validate_parameter(parameter_name, value):
-    valid_types = {
-        "n": int,
-        "K": int,
-        "r": int,
-        "rfk": list,
-        "rk": list,
-        "p": (int, float),
-        "snr": (int, float),
-    }
+    return SeedSweep(
+        parameter_name=parameter_name,
+        sweeps=sweeps,
+    )
 
-    if parameter_name not in valid_types:
+def subspace_error(U: np.ndarray, U_hat: np.ndarray) -> float:
+    """Compute Frobenius norm of the difference between two subspace projectors."""
+    return np.linalg.norm(U @ U.T - U_hat @ U_hat.T, ord="fro")
+
+def validate_parameter(parameter_name: str, value: Any) -> None:
+    """Validate the type of a sweep parameter value."""
+    if parameter_name not in VALID_PARAMETER_TYPES:
         raise ValueError(f"Unknown parameter: {parameter_name}")
 
-    expected_type = valid_types[parameter_name]
-
+    expected_type = VALID_PARAMETER_TYPES[parameter_name]
     if not isinstance(value, expected_type):
         raise ValueError(
             f"Parameter {parameter_name} value {value} is not of type {expected_type}"
-        )       
+        )
     
 def subspace_frob_norm(U, U_hat):
     """
@@ -291,10 +364,15 @@ def subspace_frob_norm(U, U_hat):
         ord="fro"
     )
 
-def save_sweep_results(
+def sweep_results(
     sweep,
-    output_path: Path,
-):
+    save_to_disk: bool = False,
+    output_path: Path | None = None,
+) -> list[dict[str, Any]]:
+    """Convert sweep results to rows and optionally save to CSV."""
+    if save_to_disk and output_path is None:
+        raise ValueError("Save to Disk enabled: please provide an output path")
+
     rows = []
 
     # -------------------------
@@ -316,7 +394,6 @@ def save_sweep_results(
                             "frob_norm": result.frob_norm,
                         }
                     )
-
 
     # -------------------------
     # ParameterSweep
@@ -341,15 +418,16 @@ def save_sweep_results(
             "Expected ParameterSweep or SeedSweep"
         )
 
+    if save_to_disk:
+        df = pd.DataFrame(rows)
 
-    df = pd.DataFrame(rows)
+        output_path.parent.mkdir(
+            parents=True,
+            exist_ok=True
+        )
 
-    output_path.parent.mkdir(
-        parents=True,
-        exist_ok=True
+        df.to_csv(
+            output_path,
+            index=False
     )
-
-    df.to_csv(
-        output_path,
-        index=False
-    )
+    return rows
