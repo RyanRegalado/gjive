@@ -322,6 +322,11 @@ def generate_simulation_data(
     )
 
     metadata = asdict(specs)
+    metadata.pop("signal_scale", None)
+    metadata.pop("noise", None)
+
+    metadata["dataset_name"] = simulation_name
+
     metadata["dataset_name"] = simulation_name
 
     with (

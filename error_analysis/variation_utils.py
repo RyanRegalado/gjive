@@ -15,7 +15,7 @@ from gjive.estimate_spec import EstimateSpec
 from experiment_result import ExperimentResult
 
 
-def run_variation(simulation_spec: SimulationSpec,
+def run_experiment(simulation_spec: SimulationSpec,
                   estimate_spec: EstimateSpec,
                   seed: int,
                   parameter_name: str,
@@ -131,7 +131,7 @@ def run_variation(simulation_spec: SimulationSpec,
     
     return results
 
-
+# def variation():
 
 
 
