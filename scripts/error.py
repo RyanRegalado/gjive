@@ -6,11 +6,15 @@ from pathlib import Path
 from gjive.generate import generate_simulation_data
 from gjive.estimate import estimate_data
 # Error Analysis Functions
-from error_analysis.variation_utils import estimate_variation, generate_variation, ticks, frob_norm_subspaces, get_datasets, get_estimates
+from error_analysis.variation_utils import estimate_variation, generate_variation, save_sweep_results
 # Classes
 from gjive.dataset import GjiveData
 from gjive.estimate_class import GjiveEstimate
 from gjive.simulation_spec import SimulationSpec
+from gjive.estimate_spec import EstimateSpec
+
+from error_analysis.variation_utils import run_experiment, run_parameter_sweep, run_seed_sweep
+from error_analysis.experiment_result import ExperimentResult
 
 
 base = SimulationSpec(
@@ -21,83 +25,123 @@ base = SimulationSpec(
     rk = [3] * 100,
     p = 0.5,
     seed = 1,
-    noise = 1
+    snr = 0.2
 )
 
-def control_simulation():
-    start = perf_counter()
-    generate_simulation_data(base, "control")
-    elapsed = perf_counter() - start
-    print(f'Control Simulation completed in: {elapsed} seconds')
-    return elapsed
-
-
-def run_variation(parameter: str, values):
-    name = f"variation_in_{parameter}"
-
-    datasets, _ = generate_variation(base, values, parameter, name)
-    estimates, _ = estimate_variation(datasets, parameter, name)
-
-    norms = frob_norm_subspaces(
-        datasets,
-        estimates,
-        parameter,
-        do_Uk=False,
-    )
-
-    df = pd.DataFrame(norms)
-    df.to_csv(
-        Path.cwd() / "error_analysis" / "csvs" / f"{name}.csv",
-        index=False,
-    )
-
 def main():
+    par = run_parameter_sweep(base, "K", [20, 30, 40, 50, 60, 70], 1, "test_par_sweep")
 
-    # Variation in K
-    
+    print(f"Parameter sweep: {par.parameter_name}")
+    print(f"Number of parameter values tested: {len(par.experiments)}\n")
 
-    # Variation in n
+    for parameter_value, experiments in par.experiments.items():
+        print(f"{par.parameter_name} = {parameter_value}")
 
-    datasets = get_datasets("variation_in_r")
+        for result in experiments:
+            print(
+                f"  {result.matrix_name}: "
+                f"Frobenius error = {result.frob_norm:.4f}"
+            )
 
-    estimates, _ = estimate_variation(datasets, "r", "variation_in_r_irlb")
-    parameter = "r"
+        print()
 
-    norms = frob_norm_subspaces(
-        datasets,
-        estimates,
-        parameter,
-        do_Uk=False,
-    )
+def seed_test():
+    sweep = run_seed_sweep(
+            base,
+            "K",
+            [20, 30, 40, 50],
+            [1, 2, 3],
+            "test_seed_sweep"
+        )
 
-    df = pd.DataFrame(norms)
-    df.to_csv(
-        Path.cwd() / "error_analysis" / "csvs" / "variation_in_r_irlb.csv",
-        index=True,
-    )
+    print(f"Parameter: {sweep.parameter_name}")
+    print(f"Seeds tested: {list(sweep.sweeps.keys())}")
 
+    for seed, parameter_sweep in sweep.sweeps.items():
+        print(f"\nSeed = {seed}")
 
+        for value, results in parameter_sweep.experiments.items():
+            print(f"  K = {value}: {len(results)} results")
 
-
-
-
-    # Variation in r
-    
-
-    # Variation in rfk
-
-
-    # Variation in rk
-
-
-    # Variation in sigma
-
-
-    # Variation in error
-
-
+            for result in results:
+                print(
+                    f"    {result.matrix_name}: "
+                    f"{result.frob_norm:.4f}"
+                )
     return None
+
+def test_save_seed_sweep():
+
+    sweep = run_seed_sweep(
+        base,
+        parameter_name="K",
+        values=[20, 30],
+        seeds=[1, 2],
+        sweep_name="test_seed_sweep",
+    )
+
+    output_file = Path().cwd() / "error_analysis" / "csvs" / "test_seed_sweep.csv"
+
+    save_sweep_results(
+        sweep,
+        output_file,
+    )
+
+    print(f"Saved results to: {output_file}")
+
+    # Verify file contents
+    df = pd.read_csv(output_file)
+
+    print("\nCSV Preview:")
+    print(df.head())
+
+    print("\nRows:", len(df))
+
+def test_K_sweep():
+
+    K_values = list(range(10, 101, 10))
+    seeds = list(range(1, 8))
+
+    print(f"K values: {K_values}")
+    print(f"Seeds: {seeds}")
+
+    sweep = run_seed_sweep(
+        base,
+        parameter_name="K",
+        values=K_values,
+        seeds=seeds,
+        sweep_name="K_sweep",
+    )
+
+    output_path = Path("results") / "K_sweep.csv"
+
+    save_sweep_results(
+        sweep,
+        output_path,
+    )
+
+    print(f"\nSaved results to: {output_path}")
+
+    # Optional sanity check
+    import pandas as pd
+
+    df = pd.read_csv(output_path)
+
+    print("\nResults summary:")
+    print(df.head())
+
+    print("\nRows generated:", len(df))
+
+    expected_rows = (
+        len(K_values)
+        * len(seeds)
+        * 3   # U, Uf_0, Uf_1
+    )
+
+    print("Expected rows:", expected_rows)
+
+    assert len(df) == expected_rows
 
 
 if __name__ == "__main__":
-    main()
+    test_K_sweep()

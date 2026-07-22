@@ -12,7 +12,9 @@ from gjive.dataset import GjiveData
 from gjive.estimate_class import GjiveEstimate
 from gjive.simulation_spec import SimulationSpec
 from gjive.estimate_spec import EstimateSpec
-from experiment_result import ExperimentResult
+from error_analysis.experiment_result import ExperimentResult
+from error_analysis.paramater_sweep import ParameterSweep
+from error_analysis.seed_sweep import SeedSweep
 
 
 def run_experiment(simulation_spec: SimulationSpec,
@@ -20,33 +22,34 @@ def run_experiment(simulation_spec: SimulationSpec,
                   seed: int,
                   parameter_name: str,
                   parameter_value: Any,
+                  parent_dir: Path,
                   do_U: bool = True,
                   do_Ufk: bool = True,
                   uk_mode: str = "none") -> list:
     
     UK_MODES = {"none", "all", "summary"}
 
+    name = f"{parameter_name}_{parameter_value}"
+
     if uk_mode not in UK_MODES:
         raise ValueError(
             f"uk_mode must be one of {UK_MODES}"
         )
+
+    data_path = Path.cwd() / "data" / parent_dir
     
-    spec = replace(
-        simulation_spec, 
-        **{parameter_name:parameter_value}
+    data = generate_simulation_data(
+        simulation_spec,
+        simulation_name=name,
+        output_path=data_path
         )
 
-    data = generate_simulation_data(
-        spec,
-        name = f"{parameter_name}_{parameter_value}"
-        )
-    
-    est_spec = replace(
+    estimate_path = Path.cwd() / "estimates" / parent_dir / name
+
+    estimate = estimate_data(
+        data,
         estimate_spec,
-        **{parameter_name:parameter_value}
-    )
-    
-    estimate = estimate_data(data, est_spec)
+        output_path=estimate_path)
 
     results = []
 
@@ -56,7 +59,7 @@ def run_experiment(simulation_spec: SimulationSpec,
                 seed=seed,
                 parameter_name=parameter_name,
                 parameter_value=parameter_value,
-                subspace="U",
+                matrix_name="U",
                 frob_norm=subspace_error(
                     data.U,
                     estimate.U
@@ -71,7 +74,7 @@ def run_experiment(simulation_spec: SimulationSpec,
                     seed=seed,
                     parameter_name=parameter_name,
                     parameter_value=parameter_value,
-                    subspace=f"Uf_{group}",
+                    matrix_name=f"Uf_{group}",
                     frob_norm=subspace_error(
                         data.Uf[group],
                         estimate.Uf[group]
@@ -86,7 +89,7 @@ def run_experiment(simulation_spec: SimulationSpec,
                     seed=seed,
                     parameter_name=parameter_name,
                     parameter_value=parameter_value,
-                    subspace=f"Uk_{k}",
+                    matrix_name=f"Uk_{k}",
                     frob_norm=subspace_error(
                         data.Uk[k],
                         estimate.Uk[k]
@@ -110,30 +113,95 @@ def run_experiment(simulation_spec: SimulationSpec,
                 seed=seed,
                 parameter_name=parameter_name,
                 parameter_value=parameter_value,
-                subspace="Uk_mean",
+                matrix_name="Uk_mean",
                 frob_norm=float(np.mean(uk_errors))
             ),
             ExperimentResult(
                 seed=seed,
                 parameter_name=parameter_name,
                 parameter_value=parameter_value,
-                subspace="Uk_std",
+                matrix_name="Uk_std",
                 frob_norm=float(np.std(uk_errors))
             ),
             ExperimentResult(
                 seed=seed,
                 parameter_name=parameter_name,
                 parameter_value=parameter_value,
-                subspace="Uk_max",
+                matrix_name="Uk_max",
                 frob_norm=float(np.max(uk_errors))
             )
         ])
     
     return results
 
-# def variation():
+def run_parameter_sweep(base_spec: SimulationSpec, parameter_name: str, values: Sequence, seed: int, sweep_name: str | None = None):
+
+    for value in values:
+        validate_parameter(parameter_name, value)
+
+    experiments = {}
+
+    for value in values:
+
+        print("Running value:", value)
+
+        updates = {parameter_name: value}
+
+        # Spec creation edge cases
+        if parameter_name == "K":  
+            updates['rk'] = [base_spec.rk[0]] * value
+        
+        new_base = replace(base_spec, **updates)
+
+        new_base_est = EstimateSpec.from_simulation(new_base)
+        # If you want Ufk data, specify it here. Come back later to create a struct or something to handle this.
+
+        data_dir = Path(f'{sweep_name}') / f'seed_{seed}'
+        experiment_results = run_experiment(
+            new_base,
+            new_base_est,
+            seed,
+            parameter_name,
+            value,
+            parent_dir = data_dir
+        )
 
 
+        experiments[value] = experiment_results
+
+    return ParameterSweep(
+        seed=seed,
+        parameter_name=parameter_name,
+        values=values,
+        experiments=experiments
+    )
+
+def run_seed_sweep(
+        base_spec: SimulationSpec,
+        parameter_name: str,
+        values: Sequence,
+        seeds: Sequence[int],
+        sweep_name: str | None = None,
+    ) -> SeedSweep:
+
+        sweeps = {}
+
+        for seed in seeds:
+
+            parameter_sweep = run_parameter_sweep(
+                base_spec,
+                parameter_name,
+                values,
+                seed,
+                sweep_name,
+            )
+
+            sweeps[seed] = parameter_sweep
+
+        return SeedSweep(
+            parameter_name=parameter_name,
+            sweeps=sweeps,
+        )
 
         
 def subspace_error(U, U_hat):
@@ -144,39 +212,25 @@ def subspace_error(U, U_hat):
         )
 
 def validate_parameter(parameter_name, value):
-
-    PARAMETER_TYPES = {
-        "K": int,
+    valid_types = {
         "n": int,
+        "K": int,
         "r": int,
-        "snr": float,
-        "rfk": list(int),
-        "rk": list(int)
+        "rfk": list,
+        "rk": list,
+        "p": (int, float),
+        "snr": (int, float),
     }
 
-    if value != PARAMETER_TYPES[parameter_name]:
+    if parameter_name not in valid_types:
+        raise ValueError(f"Unknown parameter: {parameter_name}")
+
+    expected_type = valid_types[parameter_name]
+
+    if not isinstance(value, expected_type):
         raise ValueError(
-            f"Parameter name: {parameter_name} is not of type {str(PARAMETER_TYPES[parameter_name])}"
-        )              
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+            f"Parameter {parameter_name} value {value} is not of type {expected_type}"
+        )       
 
 def estimate_variation(
     datasets: list[GjiveData],
@@ -276,55 +330,6 @@ def generate_variation(
             )
 
     return simulations, times
-
-def ticks(start: int, n: int, step: int):
-
-    ticks = np.arange(start, step * (n + 1), step)
-
-    return ticks
-
-def run_variation_trial(
-    base: SimulationSpec,
-    values: list[int],
-    parameter: str,
-    variation_name: str,
-    seed: int,
-):
-    spec = replace(base, seed=seed)      # or build a new SimulationSpec
-
-    datasets, _ = generate_variation(
-        spec,
-        values,
-        parameter,
-        f"{variation_name}/seed_{seed}",
-    )
-
-    estimates, _ = estimate_variation(
-        datasets,
-        parameter,
-        f"{variation_name}/seed_{seed}",
-    )
-
-    return estimates
-
-
-
-
-def get_datasets(name):
-    datasets = []
-    data_dir = Path().cwd() / "data" / name
-    for file in data_dir.iterdir():
-        datasets.append(GjiveData(file))
-        print(f'Retrieved data file: {file}')
-    return datasets
-
-def get_estimates(name):
-    estimates = []
-    est_dir = Path().cwd() / "estimates" / name
-    for file in est_dir.iterdir():
-        estimates.append(GjiveEstimate(file))
-        print(f'Retrieved estimate file: {file}')
-    return estimates
     
 def subspace_frob_norm(U, U_hat):
     """
@@ -335,56 +340,65 @@ def subspace_frob_norm(U, U_hat):
         ord="fro"
     )
 
-def frob_norm_subspaces(
-    datasets,
-    estimates,
-    parameter,
-    do_U=True,
-    do_Uf=True,
-    do_Uk=True,
+def save_sweep_results(
+    sweep,
+    output_path: Path,
 ):
+    rows = []
 
-    if len(datasets) != len(estimates):
-        raise ValueError(
-            f"Length of Datasets {len(datasets)} does not match Estimates {len(estimates)}"
+    # -------------------------
+    # SeedSweep
+    # -------------------------
+    if isinstance(sweep, SeedSweep):
+
+        for seed, parameter_sweep in sweep.sweeps.items():
+
+            for value, results in parameter_sweep.experiments.items():
+
+                for result in results:
+                    rows.append(
+                        {
+                            "seed": seed,
+                            "parameter_name": parameter_sweep.parameter_name,
+                            "parameter_value": value,
+                            "matrix_name": result.matrix_name,
+                            "frob_norm": result.frob_norm,
+                        }
+                    )
+
+
+    # -------------------------
+    # ParameterSweep
+    # -------------------------
+    elif isinstance(sweep, ParameterSweep):
+
+        for value, results in sweep.experiments.items():
+
+            for result in results:
+                rows.append(
+                    {
+                        "seed": sweep.seed,
+                        "parameter_name": sweep.parameter_name,
+                        "parameter_value": value,
+                        "matrix_name": result.matrix_name,
+                        "frob_norm": result.frob_norm,
+                    }
+                )
+
+    else:
+        raise TypeError(
+            "Expected ParameterSweep or SeedSweep"
         )
 
-    norms = []
 
-    for data, estimate in zip(datasets, estimates):
+    df = pd.DataFrame(rows)
 
-        value = data.metadata[parameter]
+    output_path.parent.mkdir(
+        parents=True,
+        exist_ok=True
+    )
 
-        if do_U:
-            norms.append({
-                parameter: value,
-                "matrix": "U",
-                "frob_norm": subspace_frob_norm(
-                    data.U,
-                    estimate.U,
-                ),
-            })
-
-        if do_Uf:
-            for m, (U, U_hat) in enumerate(zip(data.Uf, estimate.Uf)):
-                norms.append({
-                    parameter: value,
-                    "matrix": f"Uf{m}",
-                    "frob_norm": subspace_frob_norm(
-                        U,
-                        U_hat,
-                    ),
-                })
-
-        if do_Uk:
-            for k, (U, U_hat) in enumerate(zip(data.Uk, estimate.Uk)):
-                norms.append({
-                    parameter: value,
-                    "matrix": f"Uk{k}",
-                    "frob_norm": subspace_frob_norm(
-                        U,
-                        U_hat,
-                    ),
-                })
-
-    return norms
+    df.to_csv(
+        output_path,
+        index=False
+    )
