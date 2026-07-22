@@ -98,7 +98,6 @@ def test_save_seed_sweep():
     print("\nRows:", len(df))
 
 def test_K_sweep():
-
     K_values = list(range(10, 101, 10))
     seeds = list(range(1, 8))
 
@@ -111,6 +110,7 @@ def test_K_sweep():
         values=K_values,
         seeds=seeds,
         sweep_name="K_sweep",
+        parallel=False
     )
 
     output_path = Path("results") / "K_sweep.csv"
@@ -144,4 +144,7 @@ def test_K_sweep():
 
 
 if __name__ == "__main__":
+    start = perf_counter()
     test_K_sweep()
+    elapsed = perf_counter() - start
+    print(f'Elapsed time: {round(elapsed, 4)} seconds')
