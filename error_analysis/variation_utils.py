@@ -1,9 +1,9 @@
 import numpy as np
 import pandas as pd
-from time import perf_counter
 from pathlib import Path
 from typing import Any, Sequence
 from dataclasses import replace
+from joblib import Parallel, delayed
 # GJIVE Functions
 from gjive.generate import generate_simulation_data
 from gjive.estimate import estimate_data
@@ -157,6 +157,7 @@ def run_parameter_sweep(base_spec: SimulationSpec, parameter_name: str, values: 
         # If you want Ufk data, specify it here. Come back later to create a struct or something to handle this.
 
         data_dir = Path(f'{sweep_name}') / f'seed_{seed}'
+
         experiment_results = run_experiment(
             new_base,
             new_base_est,
