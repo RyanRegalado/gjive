@@ -134,41 +134,89 @@ def run_experiment(simulation_spec: SimulationSpec,
     
     return results
 
-def run_parameter_sweep(base_spec: SimulationSpec, parameter_name: str, values: Sequence, seed: int, sweep_name: str | None = None):
+def run_parameter_value(
+    base_spec: SimulationSpec,
+    parameter_name: str,
+    value,
+    seed: int,
+    sweep_name: str | None = None,
+):
+    """
+    Configure one parameter value and run the experiment.
+    """
+
+    updates = {
+        parameter_name: value,
+        "seed": seed
+    }
+
+    if parameter_name == "K":
+        updates["rk"] = [base_spec.rk[0]] * value
+
+    new_base = replace(base_spec, **updates)
+
+    new_base_est = EstimateSpec.from_simulation(new_base)
+
+    data_dir = (
+        Path(sweep_name) / f"seed_{seed}" / f"{parameter_name}_{value}"
+        if sweep_name
+        else None
+    )
+
+    results = run_experiment(
+        new_base,
+        new_base_est,
+        seed,
+        parameter_name,
+        value,
+        parent_dir=data_dir
+    )
+
+    return value, results
+
+def run_parameter_sweep(
+    base_spec,
+    parameter_name,
+    values,
+    seed,
+    sweep_name=None,
+    parallel=False,
+    n_jobs=-1
+):
 
     for value in values:
         validate_parameter(parameter_name, value)
 
-    experiments = {}
+    if parallel:
 
-    for value in values:
-
-        print("Running value:", value)
-
-        updates = {parameter_name: value, "seed": seed}
-
-        # Spec creation edge cases
-        if parameter_name == "K":  
-            updates['rk'] = [base_spec.rk[0]] * value
-        
-        new_base = replace(base_spec, **updates)
-
-        new_base_est = EstimateSpec.from_simulation(new_base)
-        # If you want Ufk data, specify it here. Come back later to create a struct or something to handle this.
-
-        data_dir = Path(f'{sweep_name}') / f'seed_{seed}'
-
-        experiment_results = run_experiment(
-            new_base,
-            new_base_est,
-            seed,
-            parameter_name,
-            value,
-            parent_dir = data_dir
+        output = Parallel(n_jobs=n_jobs)(
+            delayed(run_parameter_value)(
+                base_spec,
+                parameter_name,
+                value,
+                seed,
+                sweep_name
+            )
+            for value in values
         )
 
+        experiments = dict(output)
 
-        experiments[value] = experiment_results
+    else:
+
+        experiments = {}
+
+        for value in values:
+            key, result = run_parameter_value(
+                base_spec,
+                parameter_name,
+                value,
+                seed,
+                sweep_name
+            )
+
+            experiments[key] = result
+
 
     return ParameterSweep(
         seed=seed,
@@ -183,11 +231,13 @@ def run_seed_sweep(
         values: Sequence,
         seeds: Sequence[int],
         sweep_name: str | None = None,
+        parallel: bool = False,
     ) -> SeedSweep:
 
         sweeps = {}
 
         for seed in seeds:
+            print(f'Running sweep with seed: {seed}')
 
             parameter_sweep = run_parameter_sweep(
                 base_spec,
@@ -195,6 +245,7 @@ def run_seed_sweep(
                 values,
                 seed,
                 sweep_name,
+                parallel
             )
 
             sweeps[seed] = parameter_sweep
