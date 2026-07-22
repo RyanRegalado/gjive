@@ -145,7 +145,7 @@ def run_parameter_sweep(base_spec: SimulationSpec, parameter_name: str, values: 
 
         print("Running value:", value)
 
-        updates = {parameter_name: value}
+        updates = {parameter_name: value, "seed": seed}
 
         # Spec creation edge cases
         if parameter_name == "K":  
@@ -203,9 +203,7 @@ def run_seed_sweep(
             sweeps=sweeps,
         )
 
-        
 def subspace_error(U, U_hat):
-    
     return np.linalg.norm(
         U @ U.T - U_hat @ U_hat.T, 
         ord = "fro"
@@ -231,105 +229,6 @@ def validate_parameter(parameter_name, value):
         raise ValueError(
             f"Parameter {parameter_name} value {value} is not of type {expected_type}"
         )       
-
-def estimate_variation(
-    datasets: list[GjiveData],
-    parameter: str,
-    name: str,
-    track_time: bool = True,
-):
-    estimates = []
-    times = []
-
-    output_path = Path.cwd() / "estimates" / name
-
-    for i, data in enumerate(datasets):
-        print(f"\nEstimating... ({i+1}/{len(datasets)})")
-
-        if track_time:
-            t0 = perf_counter()
-
-        estimates.append(
-            estimate_data(
-                data,
-                data.metadata["r"],
-                data.metadata["rfk"],
-                data.metadata["rk"],
-                output_path / f'est_{data.metadata[parameter]}'
-            )
-        )
-
-        if track_time:
-            elapsed = perf_counter() - t0
-            print(
-                f'{parameter}={data.metadata[parameter]} '
-                f'completed in {elapsed:.4f} seconds'
-            )
-            times.append(elapsed)
-
-    return estimates, times
-
-def generate_variation(
-    base: SimulationSpec,
-    values: list[int],
-    parameter: str,
-    name: str,
-    track_time: bool = True,
-):
-    simulations = []
-    times = {}
-
-    output_path = Path.cwd() / "data" / name
-
-    for i, value in enumerate(map(int, values)):
-
-        kwargs = {
-            "n": base.n,
-            "K": base.K,
-            "r": base.r,
-            "rfk": base.rfk.copy(),
-            "rk": base.rk.copy(),
-            "p": base.p,
-            "seed": base.seed,
-            "signal_scale": base.signal_scale,
-            "noise": base.noise,
-        }
-
-        if parameter == "K":
-            kwargs["K"] = value
-            kwargs["rk"] = [base.rk[0]] * value
-
-        elif parameter == "n":
-            kwargs["n"] = value
-
-        elif parameter == "r":
-            kwargs["r"] = value
-
-        else:
-            raise ValueError(f"Unsupported parameter '{parameter}'")
-
-        current_spec = SimulationSpec(**kwargs)
-
-        if track_time:
-            t0 = perf_counter()
-
-        sim = generate_simulation_data(
-            current_spec,
-            f"sim_{value}",
-            output_path,
-        )
-
-        simulations.append(sim)
-
-        if track_time:
-            elapsed = perf_counter() - t0
-            times[value] = elapsed
-            print(
-                f"Simulation {i+1}: {parameter}={value} completed in "
-                f"{elapsed:.4f} seconds"
-            )
-
-    return simulations, times
     
 def subspace_frob_norm(U, U_hat):
     """

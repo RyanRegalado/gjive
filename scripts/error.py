@@ -6,7 +6,7 @@ from pathlib import Path
 from gjive.generate import generate_simulation_data
 from gjive.estimate import estimate_data
 # Error Analysis Functions
-from error_analysis.variation_utils import estimate_variation, generate_variation, save_sweep_results
+from error_analysis.variation_utils import save_sweep_results
 # Classes
 from gjive.dataset import GjiveData
 from gjive.estimate_class import GjiveEstimate
