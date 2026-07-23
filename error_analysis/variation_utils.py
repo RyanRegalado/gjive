@@ -51,7 +51,9 @@ def run_experiment(
     
     UK_MODES = {"none", "all", "summary"}
 
-    name = f"{parameter_name}_{parameter_value}"
+    param_label = parameter_label(parameter_value)  
+
+    name = f"{parameter_name}_{param_label}"
 
     if uk_mode not in UK_MODES:
         raise ValueError(
@@ -196,8 +198,11 @@ def run_parameter_value(
 
     new_base_est = EstimateSpec.from_simulation(new_base)
 
+    # Implemented for list parameters
+    param_label = parameter_label(value)
+
     data_dir = (
-        Path(sweep_name) / f"seed_{seed}" / f"{parameter_name}_{value}"
+        Path(sweep_name) / f"seed_{seed}" / f"{parameter_name}_{param_label}"
         if sweep_name
         else None
     )
@@ -211,7 +216,18 @@ def run_parameter_value(
         parent_dir=data_dir
     )
 
-    return value, results
+    key = tuple(value) if isinstance(value, list) else value
+
+    return key, results
+
+def parameter_label(value):
+    if isinstance(value, (list, tuple)):
+        # Take the first value of the list
+        label = value[0]
+        return label
+    else:
+        return value
+
 
 def run_parameter_sweep(
     base_spec: SimulationSpec,
@@ -292,7 +308,7 @@ def run_parameter_sweep(
 def run_seed_sweep(
     base_spec: SimulationSpec,
     parameter_name: str,
-    values: Sequence[int],
+    values: Sequence[Any],
     seeds: Sequence[int],
     sweep_name: str,
     parallel: bool = True,
@@ -385,11 +401,15 @@ def sweep_results(
             for value, results in parameter_sweep.experiments.items():
 
                 for result in results:
+
+                    param_value = parameter_label(result.parameter_value)
+
+
                     rows.append(
                         {
                             "seed": seed,
                             "parameter_name": parameter_sweep.parameter_name,
-                            "parameter_value": value,
+                            "parameter_value": param_value,
                             "matrix_name": result.matrix_name,
                             "frob_norm": result.frob_norm,
                         }
