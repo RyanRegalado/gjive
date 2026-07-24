@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from pathlib import Path
 import json
-from typing import Any
+from typing import Any, Sequence
 
 import numpy as np
 
@@ -39,14 +39,14 @@ class GjiveData:
 
     path: Path
     A: np.ndarray = field(init=False)
-    U: np.ndarray = field(init=False)
-    Uf: dict = field(init=False)
-    Uk: list = field(init=False)
-    V: np.ndarray = field(init = False)
-    W: np.ndarray = field(init = False)
-    X: np.ndarray = field(init = False)
-    metadata: dict[str, Any] = field(init=False)
-    group_assignment: np.ndarray = field(init=False)
+    U: np.ndarray | None = field(init=False)
+    Uf: dict | None = field(init=False)
+    Uk: list | None = field(init=False)
+
+    V: np.ndarray | None = field(init=False)
+    W: np.ndarray | None = field(init=False)
+
+    group_assignment: np.ndarray | None = field(init=False)
 
     def __post_init__(self) -> None:
         self.path = Path(self.path)
@@ -221,3 +221,63 @@ class GjiveData:
         cwd = Path.cwd()
         data_dir = cwd / "data" / name
         return cls(data_dir)
+
+
+    @classmethod
+    def from_real_data(
+        cls,
+        A: np.ndarray,
+        group_assignments: Sequence[int],
+    ) -> "GjiveData":
+        """
+        Construct a GjiveData object from an observed dataset.
+
+        Parameters
+        ----------
+        X : np.ndarray
+            Data tensor with shape (K, n, n), where:
+            K = number of observations (subjects)
+            n = matrix dimension (regions)
+
+        metadata : dict, optional
+            Additional information such as subject IDs, region labels, etc.
+
+        Returns
+        -------
+        GjiveData
+            A GjiveData object containing real data.
+
+        Notes
+        -----
+        Simulation-only fields (U, Uf, Uk, V, W, group_assignment)
+        are set to None because they represent ground truth unavailable
+        for real datasets.
+        """
+
+        if A.ndim != 3:
+            raise ValueError(
+                "X must have shape (observations, dimension, dimension)."
+            )
+
+        if A.shape[1] != A.shape[2]:
+            raise ValueError(
+                "Each observation must be a square matrix."
+            )
+
+        obj = cls.__new__(cls)
+
+        # Store observed data
+        obj.A = A
+
+        # Simulation-only fields
+        obj.U = None
+        obj.Uf = None
+        obj.Uk = None
+
+        obj.V = None
+        obj.W = None
+
+        # No grouping information exists for real data
+        obj.group_assignment = group_assignments
+
+        return obj

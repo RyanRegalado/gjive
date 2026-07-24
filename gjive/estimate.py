@@ -253,6 +253,7 @@ def estimate_data(
     data: GjiveData,
     spec: EstimateSpec,
     output_path: Path | None = None,
+    write_to_disk: bool = False,
     use_irlb: bool = True,
 ) -> GjiveEstimate:
     
@@ -262,8 +263,6 @@ def estimate_data(
     r = spec.r
     rfk = spec.rfk
     rk = spec.rk
-
-    estimate_name = data.metadata["dataset_name"]
 
     U_hat = U_joint(A, r, rfk, rk, group_assignments, use_irlb)
 
@@ -304,35 +303,57 @@ def estimate_data(
     # ------------------------------------------------------------------
     # Write estimate to disk
     # ------------------------------------------------------------------
-    
-    cwd = Path().cwd()
+    if write_to_disk:
 
-    if output_path is None:
-        estimate_dir = cwd / "estimates" / estimate_name
-    else: 
-        estimate_dir = output_path
-    
-    estimate_dir.mkdir(parents=True, exist_ok=True)
+        estimate_name = data.metadata["dataset_name"]
 
-    np.savez(
-        estimate_dir / "estimate.npz",
+        cwd = Path().cwd()
+
+        if output_path is None:
+            estimate_dir = cwd / "estimates" / estimate_name
+        else: 
+            estimate_dir = output_path
+        
+        estimate_dir.mkdir(parents=True, exist_ok=True)
+
+        np.savez(
+            estimate_dir / "estimate.npz",
+            U=U_hat,
+            Uf=Uf_array,
+            Uk=Uk_array,
+            V=V_array,
+            W=W_array,
+            X=X_array,
+        )
+
+        metadata = {
+            "dataset_name": estimate_name,
+            "r": int(r),
+            "rfk": list(rfk),
+            "rk": list(rk),
+            "group_assignment": data.group_assignment.tolist()
+        }
+
+        with (estimate_dir / "metadata.json").open("w") as f:
+            json.dump(metadata, f, indent=4)
+
+
+
+    metadata = {
+        "r": spec.r,
+        "rfk": spec.rfk,
+        "rk": spec.rk,
+        "group_assignments": group_assignments
+    }
+
+    estimate = GjiveEstimate(
         U=U_hat,
         Uf=Uf_array,
         Uk=Uk_array,
         V=V_array,
         W=W_array,
         X=X_array,
+        metadata=metadata
     )
 
-    metadata = {
-        "dataset_name": estimate_name,
-        "r": int(r),
-        "rfk": list(rfk),
-        "rk": list(rk),
-        "group_assignment": data.group_assignment.tolist()
-    }
-
-    with (estimate_dir / "metadata.json").open("w") as f:
-        json.dump(metadata, f, indent=4)
-
-    return GjiveEstimate(estimate_dir)
+    return estimate
