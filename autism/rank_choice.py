@@ -13,6 +13,13 @@ full_rank value to compute the spectrum.
 
 Plot the singular values (scree plot) of M_joint and run get_elbows() --
 the resulting elbow is the estimate for r.
+
+There's also a whole-dataset rank stage (--stage data) that doesn't
+depend on any (r, rfk, rk) split at all: it forms
+    M_data = sum_k A_k @ A_k.T
+across all K subjects' adjacency matrices and plots the scree of its
+eigenvalues. This gives a rank estimate for the raw data itself, before
+any JIVE-style rank budget is imposed.
 """
 
 import argparse
@@ -33,6 +40,7 @@ from gjive.utils import M_joint, M_group
 DATA_PATH = Path.cwd() / "autism" / "csvs" / "processed_connectivity_dataset.csv"
 FIG_ROOT = Path.cwd() / "autism" / "figures" / "scree_plot_full_rank"
 FIG_ROOT_GROUP = Path.cwd() / "autism" / "figures" / "scree_plot_group"
+FIG_ROOT_DATA = Path.cwd() / "autism" / "figures" / "scree_plot_data"
 
 
 def plot_group_scree(
@@ -215,6 +223,51 @@ def plot_scree(
     return elbows
 
 
+def plot_data_scree(
+    values: np.ndarray,
+    xlim: int | None = None,
+) -> list[int]:
+    """
+    Scree plot for the whole-dataset matrix M_data = sum_k A_k @ A_k.T.
+    No (r, rfk, rk) split is involved here -- this is a rank estimate
+    for the raw data itself.
+    """
+    FIG_ROOT_DATA.mkdir(parents=True, exist_ok=True)
+
+    elbows = get_elbows(values)
+
+    plt.figure(figsize=(9, 6))
+    x = np.arange(1, len(values) + 1)
+    plt.plot(x, values, marker="o", markersize=3, linewidth=1, color="seagreen")
+
+    colors = plt.cm.tab10.colors
+    for i, e in enumerate(elbows):
+        plt.axvline(e, color=colors[i % len(colors)], linestyle="--", alpha=0.7,
+                    label=f"elbow {i+1}: {e}")
+        if e - 1 < len(values):
+            plt.scatter([e], [values[e - 1]], color=colors[i % len(colors)], zorder=5)
+
+    if xlim:
+        plt.xlim(0, xlim)
+
+    plt.xlabel("Component index")
+    plt.ylabel("Singular value")
+    plt.title(r"$\sum_k A_k A_k^T$ singular values (whole-dataset rank estimate)")
+    plt.legend()
+    plt.grid(True, alpha=0.3)
+
+    suffix = "" if xlim is None else "_zoom"
+    fname = f"data_rank_scree{suffix}.png"
+    out_path = FIG_ROOT_DATA / fname
+    plt.savefig(out_path, bbox_inches="tight")
+    plt.close()
+
+    print(f"  elbow candidates: {elbows}")
+    print(f"  saved: {out_path}")
+
+    return elbows
+
+
 # ----------------------------------------------------------------------
 # Core computation
 # ----------------------------------------------------------------------
@@ -264,6 +317,50 @@ def run_full_rank_scan(
     return results
 
 
+def run_data_rank_scan(data: GjiveData):
+    """
+    Stage 0 / whole-dataset rank estimate: form
+
+        M_data = sum_k A_k @ A_k.T
+
+    over every subject's adjacency matrix A_k (no truncation, no
+    (r, rfk, rk) split), plot its scree, and return the elbow(s).
+
+    This gives an estimate of the total rank present in the raw data,
+    which is a useful upper-bound sanity check before choosing a
+    full_rank budget to scan with --stage joint.
+    """
+    print("\n===== Whole-dataset rank scan (sum_k A_k A_k^T) =====")
+
+    K = data.A.shape[0]
+    n = data.A.shape[1]
+    M_data = np.zeros((n, n))
+    for k in range(K):
+        Ak = data.A[k]
+        M_data += Ak @ Ak.T
+
+    singular_values = np.linalg.eigvalsh(M_data)[::-1]
+
+    elbows = plot_data_scree(singular_values)
+    plot_data_scree(singular_values, xlim=min(50, n))
+
+    result = {
+        "singular_values": singular_values,
+        "elbows": elbows,
+        "rank_estimate": elbows[0] if elbows else None,
+    }
+
+    print(f"  -> whole-dataset rank estimate (first elbow): {result['rank_estimate']}")
+    if result["rank_estimate"] is not None:
+        print(
+            f"  -> use this as the full_rank budget for downstream scans, e.g.:\n"
+            f"       --stage joint --full-rank {result['rank_estimate']}\n"
+            f"       --stage group --r <r_from_joint> --full-rank {result['rank_estimate']}"
+        )
+
+    return result
+
+
 # ----------------------------------------------------------------------
 # Main / CLI
 # ----------------------------------------------------------------------
@@ -280,18 +377,23 @@ def main():
         description="Estimate r from the M_joint singular value scree plot."
     )
     parser.add_argument(
-        "--full-rank", type=int, nargs="+", required=True,
-        help="One or more full_rank totals to test (r + rfk + rk == full_rank)."
+        "--full-rank", type=int, nargs="+", default=None,
+        help="One or more full_rank totals to test (r + rfk + rk == full_rank). "
+             "Required for --stage joint and --stage group; unused for --stage data."
     )
     parser.add_argument("--n-groups", type=int, default=2)
     parser.add_argument(
-    "--stage", choices=["joint", "group"], default="joint",
+    "--stage", choices=["joint", "group", "data"], default="joint",
     help="'joint' runs the r-estimation scan (stage 1). "
-         "'group' runs the rfk-estimation scan (stage 2), requires --r and --full-rank."
+         "'group' runs the rfk-estimation scan (stage 2), requires --r and --full-rank. "
+         "'data' runs the whole-dataset rank scan (sum_k A_k A_k^T), no split needed."
 )
     parser.add_argument("--r", type=int, default=None,
                         help="Fixed joint rank r, required for --stage group")
     args = parser.parse_args()
+
+    if args.stage in ("joint", "group") and args.full_rank is None:
+        raise ValueError(f"--full-rank is required for --stage {args.stage}")
 
     data, group_assignments = load_data()
 
@@ -304,6 +406,9 @@ def main():
         for full_rank in args.full_rank:
             remaining = full_rank - args.r
             run_group_scan(data, args.r, remaining, group_assignments, args.n_groups)
+
+    elif args.stage == "data":
+        run_data_rank_scan(data)
 
 
 if __name__ == "__main__":
