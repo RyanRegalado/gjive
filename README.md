@@ -1,6 +1,6 @@
 # gjive
 
-A Python package for generating and evaluating joint and individual variation ensemble simulations.
+A Python package for generating and evaluating the group, joint, and individual variance explained (GJIVE) model.
 
 ## Installation
 
